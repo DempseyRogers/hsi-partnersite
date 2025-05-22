@@ -1,0 +1,150 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import time
+from datetime import datetime
+import logging
+import os
+import torch as t
+from torch.utils.data import Dataset
+import sys
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer as vecorizer
+from  loguru import logger as loguru_logger
+
+class HSI_viz:
+    def __init__(
+        self,
+        m: list,
+        p_vec: np.ndarray,
+        num_samples: int,
+        start_idx: int,
+        verbose: bool,
+        plot_fig: bool,
+        save_fig: bool,
+        plots_dir: str,
+        unique_id_str: str,
+        logger:loguru_logger,
+    ):
+        self.m = m
+        self.num_samples = num_samples
+        self.start_idx = start_idx
+        self.verbose = verbose
+        self.figures = plot_fig
+        self.save_fig = save_fig
+        self.plots_dir = plots_dir
+        self.p_vec = p_vec
+        self.unique_id_str = unique_id_str
+        self.logger = logger
+
+    def heatmap_WeightsMatrix(
+        self,
+        title_list: list,
+        data_list: list,
+    ):
+        """Generates  heat-maps for edge weights, vertex weights, gamma and d matrices, and raw data"""
+
+        if self.figures:
+            fig, axes = plt.subplots(3, 2, figsize=(20, 35))
+            c = 0
+            for i in range(axes.shape[0]):
+                for j in range(axes.shape[1]):
+                    sns.heatmap(data_list[c], ax=axes[i, j], cmap="viridis")
+                    axes[i, j].set_title(title_list[c])
+                    c += 1
+            if self.save_fig:
+                fig.savefig(f"{self.plots_dir}/{self.unique_id_str}_model_weights.png")
+            self.logger.debug(
+                f"heatmap_WeightsMatrix was generated. The save_fig={self.save_fig}."
+            )
+
+    def heatmap_bin_predictions(
+        self,
+        v_min: float,
+        bin_outputs: list,
+        x_ticks: list,
+        x_label: list,
+    ):
+        """Generates heat maps for model predictions, bin scores, and raw data.  X ticks and
+        corresponding x labels indicated predicted anomaly"""
+
+        if self.figures:
+            # fig, axes= plt.subplots(3,1, figsize=(30, 25) )
+            fig, axes = plt.subplots(1, 3, figsize=(25, 30))
+            fig.suptitle(suptitle, size="xx-large")
+            sns.heatmap([self.m], ax=axes[0], cbar=False, cmap="viridis")
+            axes[0].set_title("Raw Anomaly Score")
+            axes[0].set_xlabel("Pixel")
+            axes[0].set_ylabel("Score")
+            axes[0].set_yticks([])
+
+            sns.lineplot([bin_outputs], ax=axes[1], legend=False)
+            axes[1].set_xlabel("Pixel")
+            axes[1].set_ylabel("STD From Mean")
+            axes[1].set_title("Model Prediction in STD from Mean")
+            axes[1].set_xlim(0, len(bin_outputs))
+            axes[1].set_ylim(0, 1.025 * max(bin_outputs))
+
+            sns.heatmap(self.p_vec.transpose(), ax=axes[2], cbar=False, cmap="viridis")
+            axes[2].set_xlabel("Pixel")
+            axes[2].set_ylabel("Features")
+            axes[2].set_title("Pixel Vector")
+
+            axes[0].set_xticks(x_ticks)
+            axes[1].set_xticks(x_ticks)
+            axes[2].set_xticks(x_ticks)
+            axes[0].set_xticklabels(x_label)
+            axes[1].set_xticklabels(x_label, rotation=90)
+            axes[2].set_xticklabels(x_label)
+            if self.save_fig:
+                fig.savefig(
+                    f"{self.plots_dir}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
+                )
+            self.logger.debug(
+                f"heatmap_bin_predictions was generated. The save_fig={self.save_fig}."
+            )
+
+    def heatmap_bin_predictions_vert(
+        self,
+        v_min: float,
+        bin_outputs: list,
+        x_ticks: list,
+        x_label: list,
+    ):
+        """Generates heat maps for model predictions, bin scores, and raw data.  X ticks and
+        corresponding x labels indicated predicted anomaly"""
+
+        if self.figures:
+            fig, axes = plt.subplots(1, 3, figsize=(25, 30))
+            # print(len([np.transpose(self.m)]))
+            sns.heatmap((np.array(self.m, ndmin=2).transpose()), ax=axes[0], cbar=False, cmap="viridis")
+            axes[0].set_title("Raw Anomaly Score")
+            axes[0].set_ylabel("Pixel")
+            axes[0].set_xlabel("Score")
+
+            axes[1].plot(np.flip(bin_outputs), range(len(bin_outputs)))
+            axes[1].set_ylabel("Pixel")
+            axes[1].set_xlabel("STD From Mean")
+            axes[1].set_title("Model Prediction in STD from Mean")
+            axes[1].set_xlim(0, 1.025 * max(bin_outputs))
+            axes[1].set_ylim(0, len(bin_outputs))
+
+            sns.heatmap((np.array(self.p_vec, ndmin=2)), ax=axes[2], cbar=False, cmap="viridis")
+            axes[2].set_ylabel("Pixel")
+            axes[2].set_xlabel("Features")
+            axes[2].set_title("Pixel Vector")
+
+            axes[0].set_yticks(x_ticks)
+            axes[1].set_yticks(len(bin_outputs) - (x_ticks))
+            axes[2].set_yticks(x_ticks)
+            axes[0].set_yticklabels(x_label)
+            axes[1].set_yticklabels(x_label)
+            axes[2].set_yticklabels(x_label)
+            if self.save_fig:
+                fig.savefig(
+                    f"{self.plots_dir}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
+                )
+            self.logger.debug(
+                f"heatmap_bin_predictions_vert was generated. The save_fig={self.save_fig}."
+            )

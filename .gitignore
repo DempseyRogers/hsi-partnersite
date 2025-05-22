@@ -1,0 +1,17 @@
+__pycache__/
+checkpoints/
+.~*
+*.swp
+tmp*
+*.json
+*.py.swo
+logs/
+data/
+.venv/
+results/
+log/
+models
+secrets/*
+*.csv
+**/keys.py
+*venv*

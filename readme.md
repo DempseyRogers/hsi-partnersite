@@ -3,19 +3,19 @@
 This model will preprocess, generate model weights, infer anomalies, and preform a multifilter function to reduce false positives. 
 
 ## Model Requirements
-- matplotlib==3.7.4
-- numpy==1.24.4
-- pandas==2.0.3
-- pillow==10.2.0
-- python-dateutil==2.8.2
-- PyYAML==6.0.1
-- scikit-learn==1.3.2
-- scipy==1.10.1
-- seaborn==0.13.1
-- splunk-sdk==1.7.4
-- sympy==1.12
-- torch==2.1.2
-- tqdm==4.66.1
+- matplotlib == 3.7.4
+- numpy == 1.24.4
+- pandas == 2.0.3
+- pillow == 10.2.0
+- python-dateutil == 2.8.2
+- PyYAML == 6.0.1
+- scikit-learn == 1.3.2
+- scipy == 1.10.1
+- seaborn == 0.13.1
+- splunk-sdk == 1.7.4
+- sympy == 1.12
+- torch == 2.1.2
+- tqdm == 4.66.1
 
 The .venv located at /opt/mlshare/aidav/.venv is currently being updated to support these requirements on all ML servers. The model is being developed on a .venv located at /home/cs.dhs/drogers/projects/.venv. 
 

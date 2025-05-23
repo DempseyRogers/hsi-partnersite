@@ -182,12 +182,12 @@ class HSI_pipeline:
         model = m.HSI_model(
             self.penalty_ratio,
             self.cutoff_dist,
-            converge_toll,
+            self.converge_toll,
             self.anomaly_std_toll,
-            affinity_matrix_iterations,
+            self.affinity_matrix_iterations,
             self.lr,
             self.logger,
-            multifilter_flag=1,
+            multifilter_flag,
         )
         self.logger.trace("Data is passed to HSI_dataset to make torch dataset.")
         dataset = d.HSI_dataset(preprocessed_df, self.logger)

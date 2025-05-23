@@ -1,11 +1,7 @@
 from copy import deepcopy
-import HSI_Classes.utils as utils
 import sys
 import os
 
-keys_path = "/opt/mlshare"
-sys.path.append(keys_path)
-from keys import *
 import HSI_Classes.Preprocessing as p
 import HSI_Classes.DataLoader as d
 import HSI_Classes.Model as m

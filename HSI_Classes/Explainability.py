@@ -3,15 +3,16 @@ import pandas as pd
 
 
 class HSI_explainability:
+
     def __init__(
         self,
         p,
-        p_vec: np.ndarray,
+        preprocessed_df: np.ndarray,
         results_df: pd.DataFrame,
         numb_comp_exp: float,
     ):
         self.p = p
-        self.p_vec = p_vec
+        self.preprocessed_df = preprocessed_df
         self.results_df = results_df
         self.numb_comps = numb_comp_exp
 
@@ -39,11 +40,11 @@ class HSI_explainability:
     def explain_pred(
         self,
     ):
-        feature_means = np.average(self.p_vec, axis=0)
-        feature_stds = np.std(self.p_vec, axis=0)
-        results_p_vec = self.p_vec[self.results_df["User DF Index"]]
+        feature_means = np.average(self.preprocessed_df, axis=0)
+        feature_stds = np.std(self.preprocessed_df, axis=0)
+        results_preprocessed_df = self.preprocessed_df[self.results_df["User DF Index"]]
         self.bad_index = []
-        for res in results_p_vec:
+        for res in results_preprocessed_df:
             zscore = (abs(feature_means - res)) / feature_stds
             scaled_zscore_df = np.array(zscore) * self.scaled_exp_df
             old = []

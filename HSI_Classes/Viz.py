@@ -14,18 +14,19 @@ from sklearn.feature_extraction.text import TfidfVectorizer as vecorizer
 from  loguru import logger as loguru_logger
 
 class HSI_viz:
+
     def __init__(
         self,
         m: list,
-        p_vec: np.ndarray,
+        preprocessed_df: np.ndarray,
         num_samples: int,
         start_idx: int,
         verbose: bool,
         plot_fig: bool,
         save_fig: bool,
-        plots_dir: str,
+        plots_directory: str,
         unique_id_str: str,
-        logger:loguru_logger,
+        logger: loguru_logger,
     ):
         self.m = m
         self.num_samples = num_samples
@@ -33,8 +34,8 @@ class HSI_viz:
         self.verbose = verbose
         self.figures = plot_fig
         self.save_fig = save_fig
-        self.plots_dir = plots_dir
-        self.p_vec = p_vec
+        self.plots_directory = plots_directory
+        self.preprocessed_df = preprocessed_df
         self.unique_id_str = unique_id_str
         self.logger = logger
 
@@ -54,7 +55,9 @@ class HSI_viz:
                     axes[i, j].set_title(title_list[c])
                     c += 1
             if self.save_fig:
-                fig.savefig(f"{self.plots_dir}/{self.unique_id_str}_model_weights.png")
+                fig.savefig(
+                    f"{self.plots_directory}/{self.unique_id_str}_model_weights.png"
+                )
             self.logger.debug(
                 f"heatmap_WeightsMatrix was generated. The save_fig={self.save_fig}."
             )
@@ -86,7 +89,9 @@ class HSI_viz:
             axes[1].set_xlim(0, len(bin_outputs))
             axes[1].set_ylim(0, 1.025 * max(bin_outputs))
 
-            sns.heatmap(self.p_vec.transpose(), ax=axes[2], cbar=False, cmap="viridis")
+            sns.heatmap(
+                self.preprocessed_df.transpose(), ax=axes[2], cbar=False, cmap="viridis"
+            )
             axes[2].set_xlabel("Pixel")
             axes[2].set_ylabel("Features")
             axes[2].set_title("Pixel Vector")
@@ -99,7 +104,7 @@ class HSI_viz:
             axes[2].set_xticklabels(x_label)
             if self.save_fig:
                 fig.savefig(
-                    f"{self.plots_dir}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
+                    f"{self.plots_directory}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
                 )
             self.logger.debug(
                 f"heatmap_bin_predictions was generated. The save_fig={self.save_fig}."
@@ -130,7 +135,12 @@ class HSI_viz:
             axes[1].set_xlim(0, 1.025 * max(bin_outputs))
             axes[1].set_ylim(0, len(bin_outputs))
 
-            sns.heatmap((np.array(self.p_vec, ndmin=2)), ax=axes[2], cbar=False, cmap="viridis")
+            sns.heatmap(
+                (np.array(self.preprocessed_df, ndmin=2)),
+                ax=axes[2],
+                cbar=False,
+                cmap="viridis",
+            )
             axes[2].set_ylabel("Pixel")
             axes[2].set_xlabel("Features")
             axes[2].set_title("Pixel Vector")
@@ -143,7 +153,7 @@ class HSI_viz:
             axes[2].set_yticklabels(x_label)
             if self.save_fig:
                 fig.savefig(
-                    f"{self.plots_dir}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
+                    f"{self.plots_directory}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
                 )
             self.logger.debug(
                 f"heatmap_bin_predictions_vert was generated. The save_fig={self.save_fig}."

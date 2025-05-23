@@ -31,17 +31,17 @@ The Splunk CLI is used to pull data from Splunk, called in the utils.py get_data
 - HSI_Classes/download_data.py
   - Edit lines 4 and 14, to reflect your query and desired data download location respectively. 
 - HSI_Model_Configs/DEVELOPMENT/{new_model_config}.py
-  - Edit the downloaded_data_dir inside teh new models configuration file to match your data downloaded location. 
+  - Edit the downloaded_data_directory inside teh new models configuration file to match your data downloaded location. 
     - If this variable is left as the default: None, data will be downloaded at each model run (PROD).
-    - Ex: downloaded_data_dir="../data/cl_attack_data.pkl"
-- HSI_Model_Configs/HSI_fitter.sh
+    - Ex: downloaded_data_directory="../data/cl_attack_data.pkl"
+- HSI_Model_Configs/HSI_faffinity_matrix_iterations.sh
   - Edit lines 6-9, to specify a unique site name or site_ALL, config.py script to be fit, and model name for logs and results storage. 
     - This shell script will then call the model with a fixed set of hyper parameters. The model will be run num_trials times. Five panel stats will be record and printed upon completion. 
       - This data shows how many times a certain anomaly is predicted across all trials. 
       - A well fit model should return a high mean percent similar among trials, and low mean standard deviation among trials.
       - Other indicators of a good fit
         - Few anomalous predictions after multi filter. 
-        - Large separation of multi fitter scores between "false positives" and predictions.  False positives found during the first pass of the HSI should have a bin count near 0, while valid predictions should have a bin count near the bin count threshold set int the config file (default is 15).
+        - Large separation of multi faffinity_matrix_iterations scores between "false positives" and predictions.  False positives found during the first pass of the HSI should have a bin count near 0, while valid predictions should have a bin count near the bin count threshold set int the config file (default is 15).
 - Model hyperparameter and their results' five panel stats are appended to results/HSI/{site}/{model}/results/parameter_df.pkl for future reference (not implemented - clustering to find fit in hyperparameter space.)
 - Logs, plots, and results are located at: results/HSI/{site}/{model}/ based of the naming convention specified it the model's config file. 
 #### Hyperparameter Explanation and Selection (defaults provided)
@@ -50,9 +50,9 @@ The Splunk CLI is used to pull data from Splunk, called in the utils.py get_data
       - Sets an upper limit on the size of the encoding space per feature.
     - percent_variance_exp = 0.95
       - Sets a stopping limit for percent variance explained while using PCA
-    - min_exp = 0.005
+    - min_additional_percent_variance_exp = 0.005
       - Sets minimum percent variance explained for a feature to be kept in dataset after PCA
-    - remove_keys = []
+    - drop_keys = []
         - Provides method of dropping features determined unimportant after generating data with Splunk CLI
     - tfidf_ip_count = 1  
       - tfidf_ip_count can be 0, 1, or 2 if no ips should be considered, only a single, or dest and src
@@ -74,7 +74,7 @@ The Splunk CLI is used to pull data from Splunk, called in the utils.py get_data
       - Learning rate for torch.optim.adam
 
 - Reporting Thresholds
-    - anom_std_toll = 1.5 
+    - anomaly_std_toll = 1.5 
       - Minimum number of STD form mean to define an anomaly 
     - bin_count = 14 
       - The number of times an anomaly needs to be predicted during the multifilter stage to be passed to the results df
@@ -116,29 +116,29 @@ query= query_date+query_context
 model = HSI_pipe.HSI_pipeline(
     query,
     typemap,
-    remove_keys,
+    drop_keys,
     tfidf_ip_count,
     ip_keys,
     output_path,
     penalty_ratio,
     cutoff_dist,
     lr,
-    anom_std_toll,
+    anomaly_std_toll,
     bin_count,
     unique_id_str,
     max_spawn_dummies,
     percent_variance_exp,
-    min_exp,
+    min_additional_percent_variance_exp,
     site,
     logger,
     query_name,
     logging_level,
     ip_keys_filtered=ip_keys_filtered,
-    production_results_dir=production_results_dir,
+    production_results_directory=production_results_directory,
     lookback_days=7,
     static_key="first_uid",
     multi_port_conn=multi_port_set,
-    downloaded_data_dir= downloaded_data_dir
+    downloaded_data_directory= downloaded_data_directory
 )
 results_df = model.infer()
 ```
@@ -160,7 +160,7 @@ df= utils.get_data_from_splunk(query, {})
 The model is composed of three primary classes, Preprocessing, HSI_Model, and Visualization. 
 
 ## Preprocessing
-After collecting data from Splunk, module df_type_gen, parses the data to determine the datatypes contained in each feature by sampling the first specified number of samples in each. This step is skipped if a column_types dict is provided.  After determining the respective feature data types, each feature is cast into its type. read_raw_get_dummies encodes categorical and object data,   converts time-like objects to data types supported by PyTorch, and scales the data from the np.array provided by df_type_gen. Optional features include filtering common pairs of IPs and port type counter (port_type dict is required). Finally, select_number_comps uses a sklearn.decomposer (pca is recommended) to select relevant features from the provided data. This module returns relevant features determined by principal component analysis, namely by selecting the features needed to explain a specified minimum amount of variance in the data (default: percent_variance_exp=.95). The second option is to stop adding features when they explain less than a specified amount of variance of the data (default: min_exp=.01).
+After collecting data from Splunk, module df_type_gen, parses the data to determine the datatypes contained in each feature by sampling the first specified number of samples in each. This step is skipped if a column_types dict is provided.  After determining the respective feature data types, each feature is cast into its type. read_raw_get_dummies encodes categorical and object data,   converts time-like objects to data types supported by PyTorch, and scales the data from the np.array provided by df_type_gen. Optional features include filtering common pairs of IPs and port type counter (port_type dict is required). Finally, select_number_comps uses a sklearn.decomposer (pca is recommended) to select relevant features from the provided data. This module returns relevant features determined by principal component analysis, namely by selecting the features needed to explain a specified minimum amount of variance in the data (default: percent_variance_exp=.95). The second option is to stop adding features when they explain less than a specified amount of variance of the data (default: min_additional_percent_variance_exp=.01).
 
 After using this class, the model has access to a pandas dataframe of the raw data from the Splunk query for reporting, a scaled, encoded, and pca nd.array of the model for training, and the fit sklearn decomposer and scaler. 
 
@@ -247,7 +247,7 @@ Anomaly scores are then determined by minimizing the completed penalized objecti
 
 ### Anomaly Score Threshold
 
-After retrieving the anomaly score vector $\vec{m}$ that minimizes the penalized objective function, each $m_i\in\vec{m}$ quantifies how anomalous a pixel is in comparison to the other pixels in the set. These continuous values can be sorted into discrete anomalous bins by measuring the distance from the mean score in standard deviations. The anom_std_toll sets the cutoff number of std's defining anomalies for the HSI.HSI_viz class. By default anom_std_toll=3, which maps scores with less than 3 std from the mean to 0 in sns.heatmap when predicting (set to background pixel color).
+After retrieving the anomaly score vector $\vec{m}$ that minimizes the penalized objective function, each $m_i\in\vec{m}$ quantifies how anomalous a pixel is in comparison to the other pixels in the set. These continuous values can be sorted into discrete anomalous bins by measuring the distance from the mean score in standard deviations. The anomaly_std_toll sets the cutoff number of std's defining anomalies for the HSI.HSI_viz class. By default anomaly_std_toll=3, which maps scores with less than 3 std from the mean to 0 in sns.heatmap when predicting (set to background pixel color).
 
 ### Multi Filter
 

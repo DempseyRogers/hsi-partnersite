@@ -5,15 +5,16 @@ from sys import exit
 from  loguru import logger as loguru_logger
 
 class HSI_model:
+
     def __init__(
         self,
         penalty_ratio: float,
         cutoff_dist: float,
         converge_toll: float,
-        anom_std_toll: float,
-        itter: int,
+        anomaly_std_toll: float,
+        affinity_matrix_iterations: int,
         lr: float,
-        logger:loguru_logger,
+        logger: loguru_logger,
         m0: int = 0,
         multifilter_flag: int = 0,
     ):
@@ -43,20 +44,20 @@ class HSI_model:
         self.penalty_ratio = penalty_ratio
         self.dc = cutoff_dist
         self.stopping_toll = converge_toll
-        self.std_toll = anom_std_toll
-        self.itter = itter
+        self.std_toll = anomaly_std_toll
+        self.affinity_matrix_iterations = affinity_matrix_iterations
         self.m0 = m0
         self.multifilter_flag = multifilter_flag
         self.lr = lr
         self.logger = logger
 
-    def set_directories(
+    def set_directoryectories(
         self,
-        log_dir: str,
-        results_dir: str,
+        log_directory: str,
+        results_directory: str,
     ):
-        self.log_dir = log_dir
-        self.results_dir = results_dir
+        self.log_directory = log_directory
+        self.results_directory = results_directory
         self.logger.trace("HSI Model directories set.")
         return self
 
@@ -81,18 +82,18 @@ class HSI_model:
         """Generates the pixel vector to detect anomalies in.  Can also generate an anomaly at a given idx. This anomaly will be the mean of each feature by a random number of anomaly scale."""
 
         if type(data_multifilter_df) == t.Tensor:
-            self.p_vec = data_multifilter_df
+            self.preprocessed_df = data_multifilter_df
         else:
-            self.p_vec = t.from_numpy(data_multifilter_df)
-        self.num_samples = min(self.num_samples, len(self.p_vec))
+            self.preprocessed_df = t.from_numpy(data_multifilter_df)
+        self.num_samples = min(self.num_samples, len(self.preprocessed_df))
         self.user_plt = (
-            self.results_dir
+            self.results_directory
             + self.unique_id_str
             + f"_start_idx-{str(self.start_idx)}_num_samples-{str(self.num_samples)}"
         )
         if self.m0 == 0:
             self.m_old = (
-                np.ones(len(self.p_vec)) * 1000
+                np.ones(len(self.preprocessed_df)) * 1000
             )  # make the initial m for difference greater than stopping_toll
             self.m = np.random.rand(
                 self.num_samples
@@ -106,8 +107,8 @@ class HSI_model:
         """Defines model weights dependant on pixel separation in function space
         Returns both the pairwise distances and summed differences for each pixel set"""
 
-        p = self.p_vec.to(self.device)
-        pl0 = len(self.p_vec)
+        p = self.preprocessed_df.to(self.device)
+        pl0 = len(self.preprocessed_df)
         p_mat = p.unsqueeze(0)
         p_mat = p_mat.expand(pl0, pl0, -1)
         p_matT = p_mat.transpose(0, 1)
@@ -169,7 +170,7 @@ class HSI_model:
         sets = []
         for m in matrix_list:
             m_set = [m]
-            for i in range(1, self.itter):
+            for i in range(1, self.affinity_matrix_iterations):
                 power = t.matmul(m_set[-1], m_set[0])
                 m_set.append(power)
             sets.append(m_set)
@@ -219,19 +220,19 @@ class HSI_model:
         m_old = t.from_numpy(self.m_old).to(self.device)
         vert_weight = self.vertWeights
         pr = t.tensor(self.penalty_ratio).requires_grad_(False).to(self.device)
-        anom_score = t.from_numpy(self.m).to(self.device)
+        anomaly_score = t.from_numpy(self.m).to(self.device)
 
         def mac_opt_loop(
             _sets: list,
             _stopping_toll: float,
-            _anom_score: t.Tensor,
+            _anomaly_score: t.Tensor,
             _pr: float,
             _vert_weight: t.tensor,
             _m_old: t.Tensor,
             _m_mid: t.Tensor,
         ):
             for i in range(len(self.sets[0])):
-                m = _anom_score.requires_grad_(True)
+                m = _anomaly_score.requires_grad_(True)
                 affinity_m = _sets[0][i]
                 d_matrix = _sets[1][i]
 
@@ -258,38 +259,41 @@ class HSI_model:
                     loss.backward()
                     optimizer.step()
 
-                    _anom_score = params[0]
+                    _anomaly_score = params[0]
                     if t.le(
-                        t.sqrt(t.sum((t.pow(t.sub(_anom_score, _m_mid), 2)))),
+                        t.sqrt(t.sum((t.pow(t.sub(_anomaly_score, _m_mid), 2)))),
                         t.tensor(_stopping_toll),
                     ):
                         break
-                    _m_mid = _anom_score
+                    _m_mid = _anomaly_score
 
                 if t.le(
-                    t.sqrt(t.sum((t.pow(t.sub(_anom_score, _m_old), 2)))),
+                    t.sqrt(t.sum((t.pow(t.sub(_anomaly_score, _m_old), 2)))),
                     t.tensor(_stopping_toll),
                 ):
                     break
-                _m_old = _anom_score  # Update the previous best guess at anomaly score
-            return _anom_score
+                _m_old = (
+                    _anomaly_score  # Update the previous best guess at anomaly score
+                )
+            return _anomaly_score
 
         cmp_opt_loop = t.compile(mac_opt_loop)
-        anom_score = cmp_opt_loop(
-            self.sets, self.stopping_toll, anom_score, pr, vert_weight, m_old, m_old
+        anomaly_score = cmp_opt_loop(
+            self.sets, self.stopping_toll, anomaly_score, pr, vert_weight, m_old, m_old
         )
 
-        self.m = anom_score.cpu().detach().numpy()
+        self.m = anomaly_score.cpu().detach().numpy()
         self.logger.debug("HSI Torch optimization complete.")
 
     def model_Predictions(
         self, df: pd.DataFrame, multifilter_flag: int = 0, user_location: list = []
     ):
         """Measures the distance from the mean in std for each minimized anomaly score.
-        Returns the number of std from mean if greater than the std_anom_thresh
+        Returns the number of std from mean if greater than the std_anomaly_thresh
         Returns the raw data for anomalous pixels in the bin_df
-        Returns the x_ticks for heat-maps (location in sub p_vec)
-        Returns the x_label for heat-maps (location in total_p_vec and raw data)"""
+        Returns the x_ticks for heat-maps (location in sub preprocessed_df)
+        Returns the x_label for heat-maps (location in total_preprocessed_df and raw data)
+        """
 
         m_mean = np.mean(self.m)
         m_std = np.std(self.m)
@@ -300,18 +304,20 @@ class HSI_model:
         self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] = np.round(
             self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] / m_std, 1
         )
-        self.x_ticks = np.where(self.bin_score > 0)[0]  # index in current p_vec
+        self.x_ticks = np.where(self.bin_score > 0)[
+            0
+        ]  # index in current preprocessed_df
 
         if multifilter_flag:
-            self.anom_index = user_location[self.x_ticks]
-            self.x_label = self.anom_index
+            self.anomaly_index = user_location[self.x_ticks]
+            self.x_label = self.anomaly_index
         else:
-            self.anom_index = (
+            self.anomaly_index = (
                 self.x_ticks + self.start_idx
             )  # index in raw data not pcap
-            self.x_label = self.anom_index
+            self.x_label = self.anomaly_index
 
-        bin_df = df.iloc[self.anom_index]
+        bin_df = df.iloc[self.anomaly_index]
         bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.x_ticks])
         self.bin_df = bin_df
         self.logger.debug("HSI model predictions complete.")
@@ -319,31 +325,35 @@ class HSI_model:
     def local_collect_multifilter_df(
         self,
     ):
-        """Collects anomalous pixel data, sub p_vec index, and raw data index
+        """Collects anomalous pixel data, sub preprocessed_df index, and raw data index
         Returns a data frame consisting of 10% anomalies and 90% background from
-        p_vec with start_idx!=0"""
+        preprocessed_df with start_idx!=0"""
 
-        predicted_anom_idx = (np.array(self.x_ticks)).astype(
+        predicted_anomaly_idx = (np.array(self.x_ticks)).astype(
             int
-        )  # Grab the pred anomaly from the sub p_vec
+        )  # Grab the pred anomaly from the sub preprocessed_df
 
-        prob_vec = np.ones(len(self.p_vec)) * (
-            1 / (len(self.p_vec) - len(predicted_anom_idx))
+        prob_vec = np.ones(len(self.preprocessed_df)) * (
+            1 / (len(self.preprocessed_df) - len(predicted_anomaly_idx))
         )  # assign equal prob of selecting good
-        prob_vec[predicted_anom_idx] = 0  # assign 0 prob of grabbing anomaly again
+        prob_vec[predicted_anomaly_idx] = 0  # assign 0 prob of grabbing anomaly again
 
-        padded_nonAnom_index = np.random.choice(
-            len(self.p_vec), self.num_samples - len(predicted_anom_idx), p=prob_vec
-        )  # random select nonAnom data from current p_vec
-        predicted_anom_data = self.p_vec[predicted_anom_idx]
+        padded_nonanomaly_index = np.random.choice(
+            len(self.preprocessed_df),
+            self.num_samples - len(predicted_anomaly_idx),
+            p=prob_vec,
+        )  # random select nonAnom data from current preprocessed_df
+        predicted_anomaly_data = self.preprocessed_df[predicted_anomaly_idx]
         mix_data = np.append(
-            predicted_anom_data, self.p_vec[padded_nonAnom_index], axis=0
+            predicted_anomaly_data,
+            self.preprocessed_df[padded_nonanomaly_index],
+            axis=0,
         )
 
         predicted_anom = (
-            predicted_anom_idx + self.start_idx
+            predicted_anomaly_idx + self.start_idx
         )  # add start idx to match raw user_df data (whole without pca)
-        index_padding = padded_nonAnom_index + self.start_idx
+        index_padding = padded_nonanomaly_index + self.start_idx
         mix_index = np.append(
             predicted_anom, index_padding
         )  # concat so that anomaly~%10
@@ -352,32 +362,34 @@ class HSI_model:
 
     def global_collect_multifilter_df(
         self,
-        total_p_vec: pd.DataFrame,
-        total_anom_index: int,
+        total_preprocessed_df: pd.DataFrame,
+        total_anomaly_index: int,
         mf_num_samples: int,
     ):
         """Given a fixed set of anomalies collects random background pixels
-        from throughout the entire p_vec"""
+        from throughout the entire preprocessed_df"""
 
         prob_vec = np.ones(
-            len(total_p_vec)
-        )  # *1/(len(total_p_vec)-len(total_anom_index))
-        prob_vec[total_anom_index] = 0
+            len(total_preprocessed_df)
+        )  # *1/(len(total_preprocessed_df)-len(total_anomaly_index))
+        prob_vec[total_anomaly_index] = 0
         prob_vec = prob_vec / sum(prob_vec)
 
-        padded_nonAnom_index = np.random.choice(
-            len(total_p_vec), mf_num_samples, p=prob_vec
-        )  # random select nonAnom data from current p_vec
+        padded_nonanomaly_index = np.random.choice(
+            len(total_preprocessed_df), mf_num_samples, p=prob_vec
+        )  # random select nonAnom data from current preprocessed_df
         mix_data = np.append(
-            total_p_vec[total_anom_index], total_p_vec[padded_nonAnom_index], axis=0
+            total_preprocessed_df[total_anomaly_index],
+            total_preprocessed_df[padded_nonanomaly_index],
+            axis=0,
         )
 
         mix_index = np.append(
-            total_anom_index, padded_nonAnom_index
+            total_anomaly_index, padded_nonanomaly_index
         )  # concat so that anomaly~%10
 
         self.logger.trace("Global Multifilter Complete.")
-        return mix_index, mix_data, total_anom_index
+        return mix_index, mix_data, total_anomaly_index
 
     def uni_shuffle_multifilter_df(
         self,
@@ -396,7 +408,9 @@ class HSI_model:
         self.all_index_user = mix_index[self.shuffler]  # shuffle index
         self.all_data = mix_data[self.shuffler]  # same shuffle for data
 
-        self.current_anom_index = np.where(np.in1d(self.all_index_user, predicted_anom))
+        self.current_anomaly_index = np.where(
+            np.in1d(self.all_index_user, predicted_anom)
+        )
         self.all_index_mf = self.all_index_user - self.start_idx
         self.logger.trace("Multifiltered data has been shuffled.")
         return self

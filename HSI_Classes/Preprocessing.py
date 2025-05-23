@@ -9,20 +9,21 @@ from loguru import logger as loguru_logger
 
 
 class HSI_preprocessing:
+
     def __init__(
         self,
         decomposer: PCA,
         scaler: StandardScaler,
-        logger:loguru_logger,
+        logger: loguru_logger,
         raw_path: str = "",
         df: str = "",
-        remove_keys: list = [],
+        drop_keys: list = [],
         type_map: dict = {},
-        max_spawn_dummies: int =500,
-        max_spawn_dummies_multi =50, # This is being set to reduce scanners in model pred dtye == 'multi'
-        allow_dict: dict= {},
+        max_spawn_dummies: int = 500,
+        max_spawn_dummies_multi=50,  # This is being set to reduce scanners in model pred dtye == 'multi'
+        allow_dict: dict = {},
     ):
-        self.remove_keys = remove_keys
+        self.drop_keys = drop_keys
         self.logger = logger
         self.max_spawn_dummies = max_spawn_dummies
         self.max_spawn_dummies_multi = max_spawn_dummies_multi
@@ -40,7 +41,7 @@ class HSI_preprocessing:
                 return(row)
 
             def keep_if_one(row, allow_dict):
-                
+
                 for df_keys in allow_dict['keep_if_one'].keys():
                     cond=0
 
@@ -48,71 +49,71 @@ class HSI_preprocessing:
                     dict_set=set(allow_dict['keep_if_one'][df_keys])
                     if not df_set.isdisjoint(dict_set):
                         cond+=1 
-                
+
                 if cond > 0:
                     return(row)
-                
+
                 else:
                     row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
                     return(row)
 
             def drop_if_one(row, allow_dict):
                 cond=0
-                
+
                 for df_keys in allow_dict['drop_if_one'].keys():
                     df_set=set(row[df_keys])
                     dict_set=set(allow_dict['drop_if_one'][df_keys])
-                    
+
                     if df_set.isdisjoint(dict_set):
                         cond+=1 
-                
+
                 if cond > 0:
                     return(row)
-                
+
                 else:
                     row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
                     return(row)
 
             def drop_if_all(row, allow_dict):
                 cond=0
-                
+
                 for df_keys in allow_dict['drop_if_all'].keys():
                     df_set=set(row[df_keys])
                     dict_set=set(allow_dict['drop_if_all'][df_keys])
-                    
+
                     if df_set.issubset(dict_set):
                         cond+=1 
-                
+
                 if cond == len(allow_dict['drop_if_all'].keys()):
                     row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
                     return(row)
-                
+
                 else:
                     return(row)   
 
             def keep_if_all(row, allow_dict):
                 cond=0
-                
+
                 for df_keys in allow_dict['keep_if_all'].keys():
                     df_set=set(row[df_keys])
                     dict_set=set(allow_dict['keep_if_all'][df_keys])
-                    
+
                     if df_set.issubset(dict_set):
                         cond+=1 
-                
+
                 if cond == len(allow_dict['keep_if_all'].keys()):
                     return(row)
-                
+
                 else:
                     row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
                     return(row)
-                
+
             args=(allow_dict,)
             df=df.apply(str_to_list, 
                         args=args, 
                         axis=1,
                         )
-            
+
             if len(self.allow_dict['keep_if_one']):
                 df=df.apply(keep_if_one, 
                         args=args,
@@ -218,7 +219,7 @@ class HSI_preprocessing:
                 else:
                     row.append(sublist)
                 row_set=row_set.union(set(row))
-            
+
             if len(row_set) < max_spawn_dummies:
                 for spawn_key in row_set:
                     temp = pd.DataFrame(
@@ -243,7 +244,6 @@ class HSI_preprocessing:
             )            
             return(df)
 
-
         def df_dtype_gen(
             df: pd.DataFrame,
             type_map: dict = {},
@@ -256,7 +256,7 @@ class HSI_preprocessing:
                 df = allow_lister(df, self.allow_dict)
                 df.dropna(inplace=True)
                 df.to_pickle("~/allow.pkl")
-            
+
             for k in [key for key in df if type_map[key] != "multi"]:
                 df[k] = df[k].astype(type_map[k])
             for k in [key for key in type_map if type_map[key] == "multi"]:
@@ -272,7 +272,6 @@ class HSI_preprocessing:
             df = df_dtype_gen(pd.read_pickle(self.raw_path), type_map)
         else:
             df = df_dtype_gen(df, type_map)
-
 
         self.raw_data = df
 
@@ -347,7 +346,7 @@ class HSI_preprocessing:
 
         if tfidf_ip_count == 2:
             ip_df = self.raw_data
-            
+
             pass
             ip_list = list(ip_df[ip_keys[0]].values)
             ip_list += list(ip_df[ip_keys[1]].values)  # use all quads as vocb items
@@ -388,7 +387,7 @@ class HSI_preprocessing:
             self.raw_data = pd.concat(
                 [self.raw_data, dest_quad, src_quad], axis=1, ignore_index=True
             )
-           
+
             self.raw_data.columns=tfidf_keys
             self.raw_data.drop("index", inplace=True, axis=1)
             self.logger.debug("There are 2 IPs in use, TFIDF Complete.")
@@ -401,8 +400,8 @@ class HSI_preprocessing:
         """Read dataframe for single user and get dummies for keys containing categorical data and objects. If max_spawn dummies is given will drop keys that generate more dummies than specified. The data frame is then scaled in preparation of pca."""
 
         df = self.raw_data
-        if self.remove_keys:
-            df.drop(self.remove_keys, axis=1, inplace=True)
+        if self.drop_keys:
+            df.drop(self.drop_keys, axis=1, inplace=True)
         max_spawn = []
 
         for k in df.keys():
@@ -410,7 +409,7 @@ class HSI_preprocessing:
                 if len(df[k].unique()) > max_spawn_dummies:
                     df.drop(k, axis=1, inplace=True)
                     max_spawn.append(k)
-        
+
         d = df[df.select_dtypes(include=["category", "object"]).columns]
         d_keys = d.keys()
         dummies = pd.get_dummies(d)
@@ -426,7 +425,7 @@ class HSI_preprocessing:
                 df["duration"] = time
 
         df.columns = df.columns.astype(str)
-        
+
         for k in df.keys():
             if df[k].nunique() ==1:
                 df.drop(k, inplace = True, axis=1)
@@ -447,17 +446,17 @@ class HSI_preprocessing:
     def select_number_comps(
         self,
         percent_variance_exp: float = 0.95,
-        min_exp: float = 0.01,
+        min_additional_percent_variance_exp: float = 0.01,
     ):
         """Pass the decomposer of choice, pca, and both the percent_variance to explain,
         and the minimum percent of the variance that the addition of another component
         must achieve. Loops will break when percent_variance_exp is achieved, or when
-        min_exp is not achieved."""
+        min_additional_percent_variance_exp is not achieved."""
         pca = self.decomposer.fit(self.df)
         diff = []
         sum_exp_var = 0
         per_exp = percent_variance_exp
-        min_exp = min_exp
+        min_additional_percent_variance_exp = min_additional_percent_variance_exp
         for n_components in range(len(pca.explained_variance_ratio_)):
             temp = sum_exp_var
             sum_exp_var += pca.explained_variance_ratio_[n_components]
@@ -465,8 +464,8 @@ class HSI_preprocessing:
             if sum_exp_var > per_exp:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAchieved %{100*percent_variance_exp}"
                 break
-            if diff[-1] < min_exp:
-                select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_exp} explanation of variance"
+            if diff[-1] < min_additional_percent_variance_exp:
+                select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_additional_percent_variance_exp} explanation of variance"
                 break
         self.decomposer.set_params(n_components=n_components)
         self.df = self.decomposer.fit_transform(self.df)

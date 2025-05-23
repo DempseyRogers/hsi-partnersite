@@ -1,6 +1,6 @@
 # Hyperspectral Imaging (HSI) Anomaly Detection
 ### Model Status: Development On ML2
-This model has been built using site 0 data on the local lambda box in C3 room 123. The model performance has been optimized to run on this machine's nividia GPUs. To run this model activate the .venv outlined in the requirements section. The current fully automated model architecture can be run using python or ipython to run HSI_FullAuto.py. This will collect data from splunk, preprocess, generate model weights, infer anomalies, and preform a multifilter function to reduce false positives. 
+This model will preprocess, generate model weights, infer anomalies, and preform a multifilter function to reduce false positives. 
 
 ## Model Requirements
 - matplotlib==3.7.4

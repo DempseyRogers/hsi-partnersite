@@ -35,9 +35,6 @@ class HSI_pipeline:
 
     def __init__(
         self,
-        query: str,
-        type_map: dict,
-        drop_keys: list,
         penalty_ratio: float,
         cutoff_dist: float,
         lr: float,
@@ -49,9 +46,6 @@ class HSI_pipeline:
         logger: loguru_logger,
         logging_level: str,
         verbose: bool = 0,
-        production_results_directory: bool = None,
-        ip_keys_filtered: str = None,
-        static_key: str = None,
         plot_figures: bool = None,  # Show weights and model prediction heatmaps
         save_figures: bool = None,
         save_preprocessed_np: bool = None,
@@ -79,17 +73,9 @@ class HSI_pipeline:
         self.logger.info(
             f"Trial Info:\ntype_map: {self.type_map}, penalty_ratio: {self.penalty_ratio}, cutoff_dist: {self.cutoff_dist}, lr: {self.lr}, anomaly_std_toll: {self.anomaly_std_toll}, bin_count: {self.bin_count}, max_spawn_dummies: {self.max_spawn_dummies}, percent_variance_exp: {self.percent_variance_exp}"
         )
-        self.production_results_directory = production_results_directory
-        self.ip_keys_filtered = ip_keys_filtered
         self.static_key = static_key
         self.save_preprocessed_np = save_preprocessed_np
 
-        start_date, end_date = re.findall("\d+d@d", query)
-        date_offset = int(end_date[:-3]) - 1
-        self.run_date = (datetime.today() - timedelta(days=date_offset)).strftime(
-            "%Y-%m-%d"
-        )
-        self.run_date_date_obj = datetime.today() - timedelta(days=date_offset)
         self.base_directory = base_directory
         self.plot_directory = f"{self.base_directory}/plots"  # Storage location
         self.log_directory = f"{self.base_directory}/logs"  # Storage location

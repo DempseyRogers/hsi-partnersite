@@ -452,14 +452,14 @@ class HSI_preprocessing:
         and the minimum percent of the variance that the addition of another component
         must achieve. Loops will break when percent_variance_exp is achieved, or when
         min_additional_percent_variance_exp is not achieved."""
-        pca = self.decomposer.fit(self.df)
+        # pca = self.decomposer.fit(self.df)
         diff = []
         sum_exp_var = 0
         per_exp = percent_variance_exp
         min_additional_percent_variance_exp = min_additional_percent_variance_exp
         for n_components in range(len(pca.explained_variance_ratio_)):
             temp = sum_exp_var
-            sum_exp_var += pca.explained_variance_ratio_[n_components]
+            sum_exp_var += self.decomposer.explained_variance_ratio_[n_components]
             diff.append(sum_exp_var - temp)
             if sum_exp_var > per_exp:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAchieved %{100*percent_variance_exp}"

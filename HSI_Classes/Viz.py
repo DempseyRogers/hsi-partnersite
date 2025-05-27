@@ -18,7 +18,7 @@ class HSI_viz:
     def __init__(
         self,
         m: list,
-        preprocessed_df: np.ndarray,
+        preprocessed_np: np.ndarray,
         num_samples: int,
         start_idx: int,
         verbose: bool,
@@ -35,7 +35,7 @@ class HSI_viz:
         self.figures = plot_fig
         self.save_fig = save_fig
         self.plots_directory = plots_directory
-        self.preprocessed_df = preprocessed_df
+        self.preprocessed_np = preprocessed_np
         self.unique_id_str = unique_id_str
         self.logger = logger
 
@@ -90,7 +90,7 @@ class HSI_viz:
             axes[1].set_ylim(0, 1.025 * max(bin_outputs))
 
             sns.heatmap(
-                self.preprocessed_df.transpose(), ax=axes[2], cbar=False, cmap="viridis"
+                self.preprocessed_np.transpose(), ax=axes[2], cbar=False, cmap="viridis"
             )
             axes[2].set_xlabel("Pixel")
             axes[2].set_ylabel("Features")
@@ -136,7 +136,7 @@ class HSI_viz:
             axes[1].set_ylim(0, len(bin_outputs))
 
             sns.heatmap(
-                (np.array(self.preprocessed_df, ndmin=2)),
+                (np.array(self.preprocessed_np, ndmin=2)),
                 ax=axes[2],
                 cbar=False,
                 cmap="viridis",

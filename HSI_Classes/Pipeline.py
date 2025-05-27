@@ -38,7 +38,6 @@ class HSI_pipeline:
         query: str,
         type_map: dict,
         drop_keys: list,
-        output_path: str,
         penalty_ratio: float,
         cutoff_dist: float,
         lr: float,
@@ -55,7 +54,7 @@ class HSI_pipeline:
         static_key: str = None,
         plot_figures: bool = None,  # Show weights and model prediction heatmaps
         save_figures: bool = None,
-        save_preprocessed_df: bool = None,
+        save_preprocessed_np: bool = None,
         num_samples: int = 2000,  # Batch size for data loader
         multi_filters: int = 15,  # How many multifilter steps to take
         converge_toll: float = 1e-30,  # Defines convergence of anomaly score during opt
@@ -64,10 +63,6 @@ class HSI_pipeline:
         base__directory: str = None,
         num_workers: int = 10,
     ):
-        self.query = query
-        self.type_map = type_map
-        self.drop_keys = drop_keys
-        self.output_path = output_path
         self.penalty_ratio = penalty_ratio
         self.cutoff_dist = cutoff_dist
         self.lr = lr
@@ -87,7 +82,7 @@ class HSI_pipeline:
         self.production_results_directory = production_results_directory
         self.ip_keys_filtered = ip_keys_filtered
         self.static_key = static_key
-        self.save_preprocessed_df = save_preprocessed_df
+        self.save_preprocessed_np = save_preprocessed_np
 
         start_date, end_date = re.findall("\d+d@d", query)
         date_offset = int(end_date[:-3]) - 1
@@ -108,14 +103,11 @@ class HSI_pipeline:
         self.num_workers = num_workers
 
         dir_list = [
-            self.output_path,
             self.base__directory,
             self.plot_directory,
             self.log_directory,
             self.results_directory,
         ]  # Set up for model __init__
-        if self.production_results_directory:
-            dir_list.append(self.production_results_directory)
         try:
             for directory in dir_list:  # Ensure dirs exist for model __init__
                 os.makedirs(directory, exist_ok=True)
@@ -157,9 +149,9 @@ class HSI_pipeline:
             min_additional_percent_variance_exp=self.min_additional_percent_variance_exp,
         )
 
-        preprocessed_df = prep.df
+        preprocessed_np = prep.df
         self.logger.debug("Preprocessing is complete, data has been processed as a DF.")
-        if len(preprocessed_df) == 0:
+        if len(preprocessed_np) == 0:
             preprocess_warning = (
                 "Did not return data from preprocessing! HSI_Preprocessing.py"
             )
@@ -168,8 +160,8 @@ class HSI_pipeline:
                 print(preprocess_warning)
             sys.exit()
 
-        df = prep.raw_data
-        if self.save_preprocessed_df:
+        df = prep.preprocessed_df
+        if self.save_preprocessed_np:
             df.to_pickle(f"{self.base__directory}/prep.pkl")
         # Initialize HSI model
         # Hyper params -- unique to each HSI model, are contained in unique HSI_Model_Configs/
@@ -186,7 +178,7 @@ class HSI_pipeline:
             multifilter_flag,
         )
         self.logger.trace("Data is passed to HSI_dataset to make torch dataset.")
-        dataset = d.HSI_dataset(preprocessed_df, self.logger)
+        dataset = d.HSI_dataset(preprocessed_np, self.logger)
         self.logger.info("Dataset is passed to Dataloader.")
         loader = DataLoader(dataset, batch_size=num_samples, num_workers=num_workers)
 
@@ -202,11 +194,11 @@ class HSI_pipeline:
         # Set logging and directories
         model.set_directoryectories(self.log_directory, self.results_directory)
         self.logger.success(
-            f"Query Generated {len(df_raw)} samples. After PreProcessing step {len(preprocessed_df)} were passed to the model."
+            f"Query Generated {len(df_raw)} samples. After PreProcessing step {len(preprocessed_np)} were passed to the model."
         )
         self.logger.debug(f"Initial Keys:dtypes {self.type_map} ")
         self.logger.info(
-            f"After {pca}, data shape: {preprocessed_df.shape}, broken into {len(loader)} data loaders"
+            f"After {pca}, data shape: {preprocessed_np.shape}, broken into {len(loader)} data loaders"
         )
         self.logger.info(f"Features dropped due to max_spawn: {max_spawn}")
 
@@ -240,8 +232,8 @@ class HSI_pipeline:
         self.logger.success("Completed dataloader on initial pass.")
         # Compare anomalous predictions with non anomalous data spanning the set (set initial for multifilter)
         mix_index, mix_data, anomaly_index = model.global_collect_multifilter_df(
-            preprocessed_df,
-            total_anomaly_index[: len(preprocessed_df)].astype(int),
+            preprocessed_np,
+            total_anomaly_index[: len(preprocessed_np)].astype(int),
             mf_num_samples=9 * len(total_anomaly_index),
         )
         anomaly_pred_freq_df = pd.DataFrame()
@@ -313,8 +305,8 @@ class HSI_pipeline:
                 # # Global multifilter
                 mix_index, mix_data, anomaly_index = (
                     model.global_collect_multifilter_df(
-                        preprocessed_df,
-                        total_anomaly_index[: len(preprocessed_df)].astype(int),
+                        preprocessed_np,
+                        total_anomaly_index[: len(preprocessed_np)].astype(int),
                         mf_num_samples=9 * len(total_anomaly_index),
                     )
                 )
@@ -330,7 +322,7 @@ class HSI_pipeline:
 
             viz = v.HSI_viz(
                 MF_model.m,
-                MF_model.preprocessed_df,
+                MF_model.preprocessed_np,
                 num_samples,
                 0,
                 self.verbose,

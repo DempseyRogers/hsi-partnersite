@@ -23,7 +23,7 @@ class HSI_Image_preprocessing:
         raw_path: str = "",
     ):
         self.raw_path = raw_path
-        self.raw_data = pd.read_pickle(self.raw_path)
+        self.preprocessed_df = pd.read_pickle(self.raw_path)
         self.decomposer = decomposer
         self.scaler = scaler
 

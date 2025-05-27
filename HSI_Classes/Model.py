@@ -82,10 +82,10 @@ class HSI_model:
         """Generates the pixel vector to detect anomalies in.  Can also generate an anomaly at a given idx. This anomaly will be the mean of each feature by a random number of anomaly scale."""
 
         if type(data_multifilter_df) == t.Tensor:
-            self.preprocessed_df = data_multifilter_df
+            self.preprocessed_np = data_multifilter_df
         else:
-            self.preprocessed_df = t.from_numpy(data_multifilter_df)
-        self.num_samples = min(self.num_samples, len(self.preprocessed_df))
+            self.preprocessed_np = t.from_numpy(data_multifilter_df)
+        self.num_samples = min(self.num_samples, len(self.preprocessed_np))
         self.user_plt = (
             self.results_directory
             + self.unique_id_str
@@ -93,7 +93,7 @@ class HSI_model:
         )
         if self.m0 == 0:
             self.m_old = (
-                np.ones(len(self.preprocessed_df)) * 1000
+                np.ones(len(self.preprocessed_np)) * 1000
             )  # make the initial m for difference greater than stopping_toll
             self.m = np.random.rand(
                 self.num_samples
@@ -107,8 +107,8 @@ class HSI_model:
         """Defines model weights dependant on pixel separation in function space
         Returns both the pairwise distances and summed differences for each pixel set"""
 
-        p = self.preprocessed_df.to(self.device)
-        pl0 = len(self.preprocessed_df)
+        p = self.preprocessed_np.to(self.device)
+        pl0 = len(self.preprocessed_np)
         p_mat = p.unsqueeze(0)
         p_mat = p_mat.expand(pl0, pl0, -1)
         p_matT = p_mat.transpose(0, 1)
@@ -291,8 +291,8 @@ class HSI_model:
         """Measures the distance from the mean in std for each minimized anomaly score.
         Returns the number of std from mean if greater than the std_anomaly_thresh
         Returns the raw data for anomalous pixels in the bin_df
-        Returns the x_ticks for heat-maps (location in sub preprocessed_df)
-        Returns the x_label for heat-maps (location in total_preprocessed_df and raw data)
+        Returns the x_ticks for heat-maps (location in sub preprocessed_np)
+        Returns the x_label for heat-maps (location in total_preprocessed_np and raw data)
         """
 
         m_mean = np.mean(self.m)
@@ -306,7 +306,7 @@ class HSI_model:
         )
         self.x_ticks = np.where(self.bin_score > 0)[
             0
-        ]  # index in current preprocessed_df
+        ]  # index in current preprocessed_np
 
         if multifilter_flag:
             self.anomaly_index = user_location[self.x_ticks]
@@ -325,28 +325,28 @@ class HSI_model:
     def local_collect_multifilter_df(
         self,
     ):
-        """Collects anomalous pixel data, sub preprocessed_df index, and raw data index
+        """Collects anomalous pixel data, sub preprocessed_np index, and raw data index
         Returns a data frame consisting of 10% anomalies and 90% background from
-        preprocessed_df with start_idx!=0"""
+        preprocessed_np with start_idx!=0"""
 
         predicted_anomaly_idx = (np.array(self.x_ticks)).astype(
             int
-        )  # Grab the pred anomaly from the sub preprocessed_df
+        )  # Grab the pred anomaly from the sub preprocessed_np
 
-        prob_vec = np.ones(len(self.preprocessed_df)) * (
-            1 / (len(self.preprocessed_df) - len(predicted_anomaly_idx))
+        prob_vec = np.ones(len(self.preprocessed_np)) * (
+            1 / (len(self.preprocessed_np) - len(predicted_anomaly_idx))
         )  # assign equal prob of selecting good
         prob_vec[predicted_anomaly_idx] = 0  # assign 0 prob of grabbing anomaly again
 
         padded_nonanomaly_index = np.random.choice(
-            len(self.preprocessed_df),
+            len(self.preprocessed_np),
             self.num_samples - len(predicted_anomaly_idx),
             p=prob_vec,
-        )  # random select nonAnom data from current preprocessed_df
-        predicted_anomaly_data = self.preprocessed_df[predicted_anomaly_idx]
+        )  # random select nonAnom data from current preprocessed_np
+        predicted_anomaly_data = self.preprocessed_np[predicted_anomaly_idx]
         mix_data = np.append(
             predicted_anomaly_data,
-            self.preprocessed_df[padded_nonanomaly_index],
+            self.preprocessed_np[padded_nonanomaly_index],
             axis=0,
         )
 
@@ -362,25 +362,25 @@ class HSI_model:
 
     def global_collect_multifilter_df(
         self,
-        total_preprocessed_df: pd.DataFrame,
+        total_preprocessed_np: pd.DataFrame,
         total_anomaly_index: int,
         mf_num_samples: int,
     ):
         """Given a fixed set of anomalies collects random background pixels
-        from throughout the entire preprocessed_df"""
+        from throughout the entire preprocessed_np"""
 
         prob_vec = np.ones(
-            len(total_preprocessed_df)
-        )  # *1/(len(total_preprocessed_df)-len(total_anomaly_index))
+            len(total_preprocessed_np)
+        )  # *1/(len(total_preprocessed_np)-len(total_anomaly_index))
         prob_vec[total_anomaly_index] = 0
         prob_vec = prob_vec / sum(prob_vec)
 
         padded_nonanomaly_index = np.random.choice(
-            len(total_preprocessed_df), mf_num_samples, p=prob_vec
-        )  # random select nonAnom data from current preprocessed_df
+            len(total_preprocessed_np), mf_num_samples, p=prob_vec
+        )  # random select nonAnom data from current preprocessed_np
         mix_data = np.append(
-            total_preprocessed_df[total_anomaly_index],
-            total_preprocessed_df[padded_nonanomaly_index],
+            total_preprocessed_np[total_anomaly_index],
+            total_preprocessed_np[padded_nonanomaly_index],
             axis=0,
         )
 

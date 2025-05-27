@@ -119,7 +119,6 @@ model = HSI_pipe.HSI_pipeline(
     drop_keys,
     tfidf_ip_count,
     ip_keys,
-    output_path,
     penalty_ratio,
     cutoff_dist,
     lr,

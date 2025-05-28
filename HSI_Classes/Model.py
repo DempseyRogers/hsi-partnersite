@@ -51,7 +51,7 @@ class HSI_model:
         self.lr = lr
         self.logger = logger
 
-    def set_directoryectories(
+    def set_directories(
         self,
         log_directory: str,
         results_directory: str,

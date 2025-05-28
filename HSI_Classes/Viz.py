@@ -75,7 +75,7 @@ class HSI_viz:
         if self.figures:
             # fig, axes= plt.subplots(3,1, figsize=(30, 25) )
             fig, axes = plt.subplots(1, 3, figsize=(25, 30))
-            fig.suptitle(suptitle, size="xx-large")
+            # fig.suptitle(suptitle, size="xx-large")
             sns.heatmap([self.m], ax=axes[0], cbar=False, cmap="viridis")
             axes[0].set_title("Raw Anomaly Score")
             axes[0].set_xlabel("Pixel")
@@ -90,7 +90,10 @@ class HSI_viz:
             axes[1].set_ylim(0, 1.025 * max(bin_outputs))
 
             sns.heatmap(
-                self.preprocessed_np.transpose(), ax=axes[2], cbar=False, cmap="viridis"
+                self.preprocessed_np.transpose(1, 0),
+                ax=axes[2],
+                cbar=False,
+                cmap="viridis",
             )
             axes[2].set_xlabel("Pixel")
             axes[2].set_ylabel("Features")
@@ -112,7 +115,6 @@ class HSI_viz:
 
     def heatmap_bin_predictions_vert(
         self,
-        v_min: float,
         bin_outputs: list,
         x_ticks: list,
         x_label: list,
@@ -153,7 +155,7 @@ class HSI_viz:
             axes[2].set_yticklabels(x_label)
             if self.save_fig:
                 fig.savefig(
-                    f"{self.plots_directory}/{v_min}std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
+                    f"{self.plots_directory}/std_pred_{datetime.today().strftime('%Y-%m-%d')}.png"
                 )
             self.logger.debug(
                 f"heatmap_bin_predictions_vert was generated. The save_fig={self.save_fig}."

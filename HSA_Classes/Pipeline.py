@@ -178,7 +178,7 @@ class HSI_pipeline:
         self.logger.trace("Hyperparameters for this trial have been pickled.")
 
         # Set logging and directories
-        model.set_directoryectories(self.log_directory, self.results_directory)
+        model.set_directories(self.log_directory, self.results_directory)
         self.logger.success(
             f"Query Generated {len(df_raw)} samples. After PreProcessing step {len(preprocessed_np)} were passed to the model."
         )
@@ -266,7 +266,7 @@ class HSI_pipeline:
                             self.logger,
                             multifilter_flag=1,
                         )
-                        MF_model.set_directoryectories(
+                        MF_model.set_directories(
                             self.log_directory, self.results_directory
                         )
                         MF_model.set_trial(j * len(data), len(data), self.unique_id_str)

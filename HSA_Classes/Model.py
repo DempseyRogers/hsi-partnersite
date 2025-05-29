@@ -219,7 +219,7 @@ class HSI_model:
         lr = self.lr
         m_old = t.from_numpy(self.m_old).to(self.device)
         vert_weight = self.vertWeights
-        pr = t.tensor(self.penalty_ratio).requires_grad_(False).to(self.device)
+        pr = t.tensor(self.penalty_ratio).requires_grad_(True).to(self.device)
         anomaly_score = t.from_numpy(self.m).to(self.device)
 
         def mac_opt_loop(
@@ -231,15 +231,17 @@ class HSI_model:
             _m_old: t.Tensor,
             _m_mid: t.Tensor,
         ):
+            # affinity_m = _sets[0][1]
+            # d_matrix = _sets[1][1]
             for i in range(len(self.sets[0])):
-                m = _anomaly_score.requires_grad_(True)
+                m = _anomaly_score.requires_grad_(False)
                 affinity_m = _sets[0][i]
                 d_matrix = _sets[1][i]
 
                 power = t.tensor(i + 1).requires_grad_(False).to(self.device)
                 params = [m]
 
-                optimizer = t.optim.Adam(params, lr=lr, fused=True)
+                optimizer = t.optim.Adam(params, lr=t.tensor(lr), fused=True)
                 for j in range(iterations):
                     optimizer.zero_grad()
 
@@ -277,7 +279,7 @@ class HSI_model:
                 )
             return _anomaly_score
 
-        cmp_opt_loop = t.compile(mac_opt_loop)
+        cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
         anomaly_score = cmp_opt_loop(
             self.sets, self.stopping_toll, anomaly_score, pr, vert_weight, m_old, m_old
         )

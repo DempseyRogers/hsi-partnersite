@@ -4,6 +4,7 @@
         "generalizability",
         "hyperparameters",
         "Hyperspectral",
+        "lookback",
         "multifilter",
         "TFIDF"
     ]

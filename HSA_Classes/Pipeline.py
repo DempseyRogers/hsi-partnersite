@@ -3,7 +3,7 @@ import sys
 import os
 
 import HSA_Classes.Preprocessing as hsa_preprocessing
-import HSA_Classes.DataLoader as hsa_dataset
+import HSA_Classes.DataSet as hsa_dataset
 import HSA_Classes.Model as hsa_model
 import HSA_Classes.Viz as hsa_viz
 import HSA_Classes.Explainability
@@ -20,28 +20,28 @@ from datetime import datetime, timedelta
 
 
 ################################################################################
-# HSI Script functionality calls keys, utils, HSI_class, and unique_query_preprocessing
+# HSA Script functionality calls keys, utils, HSA_class, and unique_query_preprocessing
 # For modularity and consistency the only two scripts that need modified for future models are unique_query
-# and potentially the HSI_class.  The unique query script contains storage directory locations, query, and the tunable
-# hyper parameters. The HSI_class contains the preprocessing class. Depending on analyst needs a custom function
-# may be needed in the preprocessing class. Otherwise the HSI_class will remain the same.
+# and potentially the HSA_class.  The unique query script contains storage directory locations, query, and the tunable
+# hyper parameters. The HSA_class contains the preprocessing class. Depending on analyst needs a custom function
+# may be needed in the preprocessing class. Otherwise the HSA_class will remain the same.
 # All tunable hyper parameters are contained in the unique_query_preprocessing.py
-# HSI_auto should now be generic for all sites and queries
-# HSI_class may contain unique preprocessing functions in the preprocessing class depending on the query and specific needs
+# HSA_auto should now be generic for all sites and queries
+# HSA_class may contain unique preprocessing functions in the preprocessing class depending on the query and specific needs
 # keys contains log in information to access splunk and other databases
 # utils contains custom functions for all models to collect .json data from splunk.
 ################################################################################
-class HSI_pipeline:
+class HSA_pipeline:
 
     def __init__(
         self,
         penalty_ratio: float,
         cutoff_distance: float,
         lr: float,
-        anomaly_std_toll: float,
+        anomaly_std_tolerance: float,
         bin_count: int,
         max_spawn_dummies: int,
-        percent_variance_exp: float,
+        percent_variance_explained: float,
         min_additional_percent_variance_exp: int,
         logger: loguru_logger,
         logging_level: str,
@@ -49,31 +49,31 @@ class HSI_pipeline:
         plot_figures: bool = None,  # Show weights and model prediction heatmaps
         save_figures: bool = None,
         save_preprocessed_np: bool = None,
-        num_samples: int = 2000,  # Batch size for data loader
+        batch_size: int = 2000,  # Batch size for data loader
         multi_filters: int = 15,  # How many multifilter steps to take
         converge_toll: float = 1e-30,  # Defines convergence of anomaly score during opt
         affinity_matrix_iterations: int = 20,  # Number of powers of affinity matrix to generate
         iterations: int = int(5e3),  # 5e2 Number of optim.adam steps
-        base__directory: str = None,
+        base_directory: str = None,
         num_workers: int = 10,
     ):
         self.penalty_ratio = penalty_ratio
         self.cutoff_distance = cutoff_distance
         self.lr = lr
-        self.anomaly_std_toll = anomaly_std_toll
+        self.anomaly_std_tolerance = anomaly_std_tolerance
         self.bin_count = bin_count
         self.max_spawn_dummies = max_spawn_dummies
-        self.percent_variance_exp = percent_variance_exp
+        self.percent_variance_explained = percent_variance_explained
         self.min_additional_percent_variance_exp = min_additional_percent_variance_exp
         self.verbose = verbose
         self.logger = logger
         self.plot_figures = plot_figures
         self.save_figures = save_figures
-        self.logger.trace("HSI_pipeline has been generated")
+        self.logger.trace("HSA_pipeline has been generated")
         self.logger.info(
-            f"Trial Info:\ntype_map: {self.type_map}, penalty_ratio: {self.penalty_ratio}, cutoff_distance: {self.cutoff_distance}, lr: {self.lr}, anomaly_std_toll: {self.anomaly_std_toll}, bin_count: {self.bin_count}, max_spawn_dummies: {self.max_spawn_dummies}, percent_variance_exp: {self.percent_variance_exp}"
+            f"penalty_ratio: {self.penalty_ratio}, cutoff_distance: {self.cutoff_distance}, lr: {self.lr}, anomaly_std_tolerance: {self.anomaly_std_tolerance}, bin_count: {self.bin_count}, max_spawn_dummies: {self.max_spawn_dummies}, percent_variance_explained: {self.percent_variance_explained}"
         )
-        self.static_key = static_key
+        # self.static_key = static_key
         self.save_preprocessed_np = save_preprocessed_np
 
         self.base_directory = base_directory
@@ -81,7 +81,7 @@ class HSI_pipeline:
         self.log_directory = f"{self.base_directory}/logs"  # Storage location
         self.results_directory = f"{self.base_directory}/results"  # Storage location
 
-        self.num_samples = num_samples
+        self.batch_size = batch_size
         self.multi_filters = multi_filters
         self.converge_toll = converge_toll
         self.affinity_matrix_iterations = affinity_matrix_iterations
@@ -102,7 +102,7 @@ class HSI_pipeline:
             self.logger.critical(f"An output directory is missing.\n {e}")
             sys.exit()
         self.current_logger = self.logger.add(
-            sink=f"{self.log_directory}/HSI_log_{self.run_date}.log",
+            sink=f"{self.log_directory}/HSA_log_{self.run_date}.log",
             level=logging_level,
         )
 
@@ -110,17 +110,14 @@ class HSI_pipeline:
         self,
         df,
     ):
-        self.logger.debug("HSI_pipeline inference has begun")
+        self.logger.debug("HSA_pipeline inference has begun")
         time_start = time.time()
-
-        # %% Get data from splunk
-        # Data preprocessing -- queries are unique to each HSI model. query, drop_keys, and type maps are contained in the unique_query_preprocessing.py
         df_raw = deepcopy(df)
 
         self.logger.info("Preprocessing has begun.")
         pca = PCA()
         scaler = StandardScaler()
-        prep = hsa_preprocessing.HSI_preprocessing(
+        prep = hsa_preprocessing.HSA_preprocessing(
             pca,
             scaler,
             self.logger,
@@ -131,7 +128,7 @@ class HSI_pipeline:
         max_spawn = prep.read_raw_get_dummies(max_spawn_dummies=self.max_spawn_dummies)
 
         select_comps = prep.select_number_comps(
-            percent_variance_exp=self.percent_variance_exp,
+            percent_variance_explained=self.percent_variance_explained,
             min_additional_percent_variance_exp=self.min_additional_percent_variance_exp,
         )
 
@@ -139,7 +136,7 @@ class HSI_pipeline:
         self.logger.debug("Preprocessing is complete, data has been processed as a np.array ready for use in Torch.")
         if len(preprocessed_np) == 0:
             preprocess_warning = (
-                "Did not return data from preprocessing! HSI_Preprocessing.py"
+                "Did not return data from preprocessing! HSA_Preprocessing.py"
             )
             self.logger.critical(preprocess_warning)
             if self.verbose:
@@ -149,32 +146,28 @@ class HSI_pipeline:
         df = prep.preprocessed_df
         if self.save_preprocessed_np:
             df.to_pickle(f"{self.base__directory}/prep.pkl")
-        # Initialize HSI model
-        # Hyper params -- unique to each HSI model, are contained in unique HSI_Model_Configs/
+        # Initialize HSA model
+        # Hyper params -- unique to each HSA model, are contained in unique HSA_Model_Configs/
         # Number of workers used in optimization steps
-        self.logger.trace("Hyper and Batch parameters are being passed to HSI_model.")
-        model = hsa_model.HSI_model(
+        self.logger.trace("Hyper and Batch parameters are being passed to HSA_model.")
+        model = hsa_model.HSA_model(
             self.penalty_ratio,
             self.cutoff_distance,
             self.converge_toll,
-            self.anomaly_std_toll,
+            self.anomaly_std_tolerance,
             self.affinity_matrix_iterations,
             self.lr,
             self.logger,
-            multifilter_flag,
+            multifilter_flag = 0,
         )
-        self.logger.trace("Data is passed to HSI_dataset to make torch dataset.")
-        dataset = hsa_dataset.HSI_dataset(preprocessed_np, self.logger)
+        self.logger.trace("Data is passed to HSA_dataset to make torch dataset.")
+        dataset = hsa_dataset.HSA_dataset(preprocessed_np, self.logger)
         self.logger.info("Dataset is passed to Dataloader.")
-        loader = DataLoader(dataset, batch_size=num_samples, num_workers=num_workers)
+        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
         # Set storage location for outputs
         total_anomaly_index = np.array([])
 
-        if os.path.isfile(f"{self.results_directory}/parameter_df.pkl"):
-            parameter_df = pd.read_pickle(f"{self.results_directory}/parameter_df.pkl")
-        else:
-            parameter_df = pd.DataFrame()
         self.logger.trace("Hyperparameters for this trial have been pickled.")
 
         # Set logging and directories
@@ -192,7 +185,7 @@ class HSI_pipeline:
             i = 0  # for displaying epoch progress as completed
             self.logger.info("Starting to run through the dataloader on initial pass.")
             for data in loader:  # setting up gpus
-                model.set_trial(i * num_samples, num_samples, self.unique_id_str)
+                model.set_trial(i * self.batch_size, self.batch_size, self.unique_id_str)
                 if (
                     self.verbose
                     and int(len(loader) / 8)
@@ -205,7 +198,7 @@ class HSI_pipeline:
                     data_multifilter_df=data.squeeze(0)
                 ).vertWeights_distances().affinityGen().graphEvo()
                 # Training steps
-                model.torch_optimize_POF(iterations=iterations)
+                model.torch_optimize_POF(iterations=self.iterations)
                 # Prediction step
                 model.model_Predictions(df)
                 # Store anomalous predictions throughout all batches for use in multi filter
@@ -222,10 +215,10 @@ class HSI_pipeline:
             total_anomaly_index[: len(preprocessed_np)].astype(int),
             mf_num_samples=9 * len(total_anomaly_index),
         )
-        anomaly_pred_freq_df = pd.DataFrame()
-        anomaly_pred_freq_df["User DF Index"] = anomaly_index
-        anomaly_pred_freq_df.set_index("User DF Index")
-        anomaly_pred_freq_df["Anom Pred Count"] = np.zeros(len(anomaly_index))
+        anomaly_prediction_frequency_df = pd.DataFrame()
+        anomaly_prediction_frequency_df["User DF Index"] = anomaly_index
+        anomaly_prediction_frequency_df.set_index("User DF Index")
+        anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(len(anomaly_index))
 
         # Randomly shuffle anomalies from all batches in unison
         model.uni_shuffle_multifilter_df(
@@ -241,27 +234,27 @@ class HSI_pipeline:
         tend = time.time()
         if len(anomaly_index) > 0:
             if self.verbose:
-                print(f"len anom 1st: {len(anomaly_index)}")
+                print(f"Count of 1st rank anomalies: {len(anomaly_index)}")
             self.logger.info(
-                f"HSI 1st pass detected {len(anomaly_index)} to be passed to the multifilter."
+                f"HSA 1st pass detected {len(anomaly_index)} to be passed to the multifilter."
             )
             ################################################################################
             # Multifilter Model
             try:
-                for i in range(multi_filters):
-                    batch_dataset = hsa_dataset.HSI_dataset(mf_data, self.logger)
+                for i in range(self.multi_filters):
+                    batch_dataset = hsa_dataset.HSA_dataset(mf_data, self.logger)
                     batch_loader = DataLoader(
-                        batch_dataset, batch_size=num_samples, num_workers=num_workers
+                        batch_dataset, batch_size=self.batch_size, num_workers=self.num_workers
                     )
                     j = 0
                     for data in batch_loader:
                         # # Set up multi filter model
-                        MF_model = hsa_model.HSI_model(
+                        MF_model = hsa_model.HSA_model(
                             self.penalty_ratio,
                             self.cutoff_distance,
-                            converge_toll,
-                            self.anomaly_std_toll,
-                            affinity_matrix_iterations,
+                            self.converge_toll,
+                            self.anomaly_std_tolerance,
+                            self.affinity_matrix_iterations,
                             self.lr,
                             self.logger,
                             multifilter_flag=1,
@@ -275,18 +268,18 @@ class HSI_pipeline:
                         ).vertWeights_distances().affinityGen().graphEvo()
 
                         # # Train MF_MODEL
-                        MF_model.torch_optimize_POF(iterations=iterations)
+                        MF_model.torch_optimize_POF(iterations=self.iterations)
                         MF_model.model_Predictions(
                             df, multifilter_flag=1, user_location=user_location
                         )
                         j += 1
-                    anomaly_pred_freq_df.loc[
-                        anomaly_pred_freq_df["User DF Index"].isin(MF_model.x_label),
-                        "Anom Pred Count",
+                    anomaly_prediction_frequency_df.loc[
+                        anomaly_prediction_frequency_df["User DF Index"].isin(MF_model.x_label),
+                        "Anomaly Bin Count",
                     ] += 1
 
                 self.logger.trace(
-                    f"Multifilter {i} of {multi_filters} multifilters is complete."
+                    f"Multifilter {i} of {self.multi_filters} multifilters is complete."
                 )
                 # # Global multifilter
                 mix_index, mix_data, anomaly_index = (
@@ -306,10 +299,10 @@ class HSI_pipeline:
                 sys.exit()
             self.logger.success("Multifilter Complete.")
 
-            viz = hsa_viz.HSI_viz(
+            viz = hsa_viz.HSA_viz(
                 MF_model.hsa_model,
                 MF_model.preprocessed_np,
-                num_samples,
+                self.batch_size,
                 0,
                 self.verbose,
                 self.plot_figures,
@@ -319,7 +312,7 @@ class HSI_pipeline:
                 self.logger,
             )
             viz.heatmap_bin_predictions_vert(
-                self.anomaly_std_toll,
+                self.anomaly_std_tolerance,
                 MF_model.bin_score,
                 MF_model.x_ticks,
                 MF_model.x_label,
@@ -327,9 +320,9 @@ class HSI_pipeline:
             self.logger.trace("Bin_predictions Heatmap Compete.")
 
             # Count how many times an anomaly occurs in the multifilter --> log
-            for u in anomaly_pred_freq_df["Anom Pred Count"].unique():
+            for u in anomaly_prediction_frequency_df["Anomaly Bin Count"].unique():
                 c = len(
-                    anomaly_pred_freq_df[anomaly_pred_freq_df["Anom Pred Count"] == u]
+                    anomaly_prediction_frequency_df[anomaly_prediction_frequency_df["Anomaly Bin Count"] == u]
                 )
                 self.logger.info(
                     f"{c} Anomalies were predicted {u} times in MultiFilter"
@@ -339,49 +332,36 @@ class HSI_pipeline:
             pd.set_option("display.max_columns", None)
             pd.options.mode.copy_on_write = True
             results_df = df_raw.iloc[
-                anomaly_pred_freq_df[
-                    anomaly_pred_freq_df["Anom Pred Count"] > self.bin_count
+                anomaly_prediction_frequency_df[
+                    anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
                 ]["User DF Index"]
             ]
-            results_df["Anom Pred Count"] = list(
-                anomaly_pred_freq_df[
-                    anomaly_pred_freq_df["Anom Pred Count"] > self.bin_count
-                ]["Anom Pred Count"]
+            results_df["Anomaly Bin Count"] = list(
+                anomaly_prediction_frequency_df[
+                    anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
+                ]["Anomaly Bin Count"]
             )
             results_df["User DF Index"] = list(
-                anomaly_pred_freq_df[
-                    anomaly_pred_freq_df["Anom Pred Count"] > self.bin_count
+                anomaly_prediction_frequency_df[
+                    anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
                 ]["User DF Index"]
             )
             if self.verbose:
-                print("Results DF:", results_df.sort_values("Anom Pred Count", ascending=False))
+                print("Results DF:", results_df.sort_values("Anomaly Bin Count", ascending=False))
             self.logger.trace("Results DF has been generated.")
-            # Logging and save results df
             self.logger.debug(
-                f"Standard run time {np.round((tend-time_start)/60,2)} for loader size of {num_samples}"
+                f"Standard run time {np.round((tend-time_start)/60,2)} for loader size of {self.batch_size}"
             )
-            bin_perc = (
+            bin_percentage = (
                 100
                 * len(
-                    anomaly_pred_freq_df[
-                        anomaly_pred_freq_df["Anom Pred Count"] > self.bin_count
+                    anomaly_prediction_frequency_df[
+                        anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
                     ]["User DF Index"]
                 )
-                / len(anomaly_pred_freq_df)
+                / len(anomaly_prediction_frequency_df)
             )
-
-            # %% Updating parameter df with this runs info
-            temp_df = pd.DataFrame(
-                {
-                    "penalty_ratio": [self.penalty_ratio],
-                    "cutoff_distance": [self.cutoff_distance],
-                    "anomaly_std_toll": [self.anomaly_std_toll],
-                    "lr": [self.lr],
-                    "bin_count": [self.bin_count],
-                    "bin_perc": [bin_perc],
-                }
-            )
-            parameter_df = pd.concat([parameter_df, temp_df], ignore_index=True)
+            
             self.logger.debug(
                 "Parameter df has been updated with multifilter consistency metrics"
             )
@@ -395,34 +375,29 @@ class HSI_pipeline:
                 0
             )  # set read write permissions for universal read so universal forwarder can see output.
             results_file = f"Results_{self.run_date}.json"
-            if (
-                self.production_results_directory
-            ):  # Write results /opt/mlshare/results/HSI/*model
-                path = f"{self.production_results_directory}/"
-            else:
-                path = f"{self.results_directory}/"
+          
+            path = f"{self.results_directory}/"
             write = path + results_file
-            if self.lookback_days:
-                results_df = utils.filter_prior_preds(
-                    path,
-                    self.lookback_days,
-                    self.static_key,
-                    results_df,
-                    self.run_date_date_obj,
-                )
-
-            self.logger.success(
-                f"Results DF saved to {write}, run is complete. There are {len(results_df)} anomalies predicted."
-            )
+            
+            # if self.lookback_days:
+            #     results_df = utils.filter_prior_predictions(
+            #         path,
+            #         self.lookback_days,
+            #         self.static_key,
+            #         results_df,
+            #         self.run_date_date_obj,
+            #     )
 
             if "level_0" in results_df.keys():
                 results_df.drop("level_0", axis=1, inplace=True)
 
             results_df.set_index("User DF Index").to_json(write, orient="records")
-            parameter_df.to_pickle(f"{path}parameter_df.pkl")
-
+            
+            self.logger.success(
+                f"Results DF saved to {write}, run is complete. There are {len(results_df)} anomalies predicted."
+            )
             return results_df
         else:
             self.logger.success(
-                f"No Anomalies found in data during 1st HSI pass. COMPLETE {self.run_date}"
+                f"No Anomalies found in data during 1st HSA pass. COMPLETE {self.run_date}"
             )

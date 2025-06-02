@@ -13,13 +13,13 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer as vecorizer
 from  loguru import logger as loguru_logger
 
-class HSI_viz:
+class HSA_viz:
 
     def __init__(
         self,
         m: list,
         preprocessed_np: np.ndarray,
-        num_samples: int,
+        batch_size: int,
         start_idx: int,
         verbose: bool,
         plot_fig: bool,
@@ -29,7 +29,7 @@ class HSI_viz:
         logger: loguru_logger,
     ):
         self.m = m
-        self.num_samples = num_samples
+        self.batch_size = batch_size
         self.start_idx = start_idx
         self.verbose = verbose
         self.figures = plot_fig

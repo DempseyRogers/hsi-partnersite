@@ -342,7 +342,7 @@ def remove_predefined_ips(ip_df, ip_key):
         sys.exit()
     return quads_df, filtered_ips_df.index
 
-def filter_prior_preds(
+def filter_prior_predictions(
     results_path, lookback_days, static_key, todays_df=None, run_date=None
 ):  # , results_file_pattern):
     """INPUTS

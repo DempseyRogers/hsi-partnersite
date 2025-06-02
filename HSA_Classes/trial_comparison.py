@@ -32,11 +32,11 @@ args = parser.parse_args()
 site = args.site
 static_key = args.key
 model = args.model
-path = f"/opt/mlshare/output/hsi-partnersite/{site}/{model}/"   # Trial comp will only be used in dev.  Fix this path to the dev results dir
+path = f"/opt/mlshare/output/HSA-partnersite/{site}/{model}/"   # Trial comp will only be used in dev.  Fix this path to the dev results dir
 num_trials = int(args.num_trials)
 today= args.today
 
-def get_index_list(path: str = "", num_trials: int = 4, static_keyu: str = "first_uid", today = None) -> list:
+def get_index_list(path: str = "", num_trials: int = 4, static_key: str = "first_uid", today = None) -> list:
     results_index = []
     for r in range(1, 1 + num_trials):
         index_list = []

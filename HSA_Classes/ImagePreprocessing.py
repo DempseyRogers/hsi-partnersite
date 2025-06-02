@@ -15,7 +15,7 @@ from sklearn.decomposition import PCA as PCA
 from sklearn.preprocessing import StandardScaler
 from  loguru import logger as loguru_logger
 
-class HSI_Image_preprocessing:
+class HSA_Image_preprocessing:
     def __init__(
         self,
         decomposer: PCA,
@@ -53,12 +53,12 @@ class HSI_Image_preprocessing:
 
     def select_number_comps(
         self,
-        percent_variance_exp: float = 0.95,
+        percent_variance_explained: float = 0.95,
         min_additional_percent_variance_exp: float = 0.01,
     ):
         """Pass the decomposer of choice, pca, and both the percent_variance to explain,
         and the minimum percent of the variance that the addition of another component
-        must achieve. Loops will break when percent_variance_exp is achieved, or when
+        must achieve. Loops will break when percent_variance_explained is achieved, or when
         min_additional_percent_variance_exp is not achieved."""
 
         pca = self.decomposer.fit(self.df)
@@ -68,9 +68,9 @@ class HSI_Image_preprocessing:
             temp = sum_exp_var
             sum_exp_var += pca.explained_variance_ratio_[number_components]
             additional_percent_variance.append(sum_exp_var - temp)
-            if sum_exp_var > percent_variance_exp:
+            if sum_exp_var > percent_variance_explained:
                 print(
-                    f"{number_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAcheived %{100*percent_variance_exp}"
+                    f"{number_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAcheived %{100*percent_variance_explained}"
                 )
                 break
             if additional_percent_variance[-1] < min_additional_percent_variance_exp:

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class HSI_explainability:
+class HSA_explainability:
 
     def __init__(
         self,

@@ -4,14 +4,14 @@ import torch as t
 from sys import exit
 from  loguru import logger as loguru_logger
 
-class HSI_model:
+class HSA_model:
 
     def __init__(
         self,
         penalty_ratio: float,
         cutoff_distance: float,
         converge_toll: float,
-        anomaly_std_toll: float,
+        anomaly_std_tolerance: float,
         affinity_matrix_iterations: int,
         lr: float,
         logger: loguru_logger,
@@ -44,7 +44,7 @@ class HSI_model:
         self.penalty_ratio = penalty_ratio
         self.cutoff_distance = cutoff_distance
         self.stopping_toll = converge_toll
-        self.std_toll = anomaly_std_toll
+        self.std_toll = anomaly_std_tolerance
         self.affinity_matrix_iterations = affinity_matrix_iterations
         self.init_anomaly_score = init_anomaly_score
         self.multifilter_flag = multifilter_flag
@@ -58,21 +58,21 @@ class HSI_model:
     ):
         self.log_directory = log_directory
         self.results_directory = results_directory
-        self.logger.trace("HSI Model directories set.")
+        self.logger.trace("HSA Model directories set.")
         return self
 
     def set_trial(
         self,
         start_idx: int,
-        num_samples: int,
+        batch_size: int,
         unique_id_str: str,
         verbose: int = 0,
     ):
         self.start_idx = start_idx
-        self.num_samples = num_samples
+        self.batch_size = batch_size
         self.unique_id_str = unique_id_str
         self.verbose = verbose
-        self.logger.trace("HSI Model trials set.")
+        self.logger.trace("HSA Model trials set.")
         return self
 
     def readData(
@@ -85,18 +85,18 @@ class HSI_model:
             self.preprocessed_np = data_multifilter_df
         else:
             self.preprocessed_np = t.from_numpy(data_multifilter_df)
-        self.num_samples = min(self.num_samples, len(self.preprocessed_np))
+        self.batch_size = min(self.batch_size, len(self.preprocessed_np))
         self.user_plt = (
             self.results_directory
             + self.unique_id_str
-            + f"_start_idx-{str(self.start_idx)}_num_samples-{str(self.num_samples)}"
+            + f"_start_idx-{str(self.start_idx)}_num_samples-{str(self.batch_size)}"
         )
         if self.init_anomaly_score == 0:
             self.anomaly_score_old = (
                 np.ones(len(self.preprocessed_np)) * 1000
             )  # make the initial m for difference greater than stopping_toll
             self.m = np.random.rand(
-                self.num_samples
+                self.batch_size
             )  # make the initial m for difference greater than stopping_toll
         self.logger.debug("Initial random anomaly index set.")
         return self
@@ -130,7 +130,7 @@ class HSI_model:
             .type(t.DoubleTensor)
             .to(self.device)
         )
-        self.logger.debug("HSI Model Weight Generated.")
+        self.logger.debug("HSA Model Weight Generated.")
         return self
 
     def affinityGen(
@@ -158,7 +158,7 @@ class HSI_model:
         self.sim_matrix = sim_matrix
         self.gam_matrix = gam_matrix
         self.d_matrix = d_matrix
-        self.logger.debug("HSI Graphs generated.")
+        self.logger.debug("HSA Graphs generated.")
         return self
 
     def graphEvo(
@@ -175,7 +175,7 @@ class HSI_model:
                 m_set.append(power)
             sets.append(m_set)
         self.sets = sets
-        self.logger.debug("HSI Graph Theory complete.")
+        self.logger.debug("HSA Graph Theory complete.")
         return self
 
     def torch_POF(
@@ -286,7 +286,7 @@ class HSI_model:
         )
 
         self.m = anomaly_score.cpu().detach().numpy()
-        self.logger.debug("HSI Torch optimization complete.")
+        self.logger.debug("HSA Torch optimization complete.")
 
     def model_Predictions(
         self, df: pd.DataFrame, multifilter_flag: int = 0, user_location: list = []
@@ -323,7 +323,7 @@ class HSI_model:
         bin_df = df.iloc[self.anomaly_index]
         bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.x_ticks])
         self.bin_df = bin_df
-        self.logger.debug("HSI model predictions complete.")
+        self.logger.debug("HSA model predictions complete.")
 
     def local_collect_multifilter_df(
         self,
@@ -343,7 +343,7 @@ class HSI_model:
 
         padded_nonanomaly_index = np.random.choice(
             len(self.preprocessed_np),
-            self.num_samples - len(predicted_anomaly_idx),
+            self.batch_size - len(predicted_anomaly_idx),
             p=prob_vec,
         )  # random select nonAnom data from current preprocessed_np
         predicted_anomaly_data = self.preprocessed_np[predicted_anomaly_idx]
@@ -367,7 +367,7 @@ class HSI_model:
         self,
         total_preprocessed_np: pd.DataFrame,
         total_anomaly_index: int,
-        mf_num_samples: int,
+        mf_batch_size: int,
     ):
         """Given a fixed set of anomalies collects random background pixels
         from throughout the entire preprocessed_np"""
@@ -379,7 +379,7 @@ class HSI_model:
         prob_vec = prob_vec / sum(prob_vec)
 
         padded_nonanomaly_index = np.random.choice(
-            len(total_preprocessed_np), mf_num_samples, p=prob_vec
+            len(total_preprocessed_np), mf_batch_size, p=prob_vec
         )  # random select nonAnom data from current preprocessed_np
         mix_data = np.append(
             total_preprocessed_np[total_anomaly_index],

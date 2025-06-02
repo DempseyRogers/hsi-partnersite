@@ -6,34 +6,34 @@ class HSI_explainability:
 
     def __init__(
         self,
-        p,
+        preprocessor,
         preprocessed_np: np.ndarray,
         results_df: pd.DataFrame,
-        numb_comp_exp: float,
+        number_components_explained: float,
     ):
-        self.p = p
+        self.preprocessor = preprocessor
         self.preprocessed_np = preprocessed_np
         self.results_df = results_df
-        self.numb_comps = numb_comp_exp
+        self.number_components_explained = number_components_explained
 
     def pca_lin_combo(
         self,
     ):
-        id_m = np.identity(self.p.pre_pca.shape[1])
-        id_df = pd.DataFrame(id_m, columns=self.p.pre_pca.keys())
-        lin_combo = self.p.decomposer.transform(id_df)
-        self.exp_df = pd.DataFrame(lin_combo, index=self.p.pre_pca.keys())
+        id_m = np.identity(self.preprocessor.pre_pca.shape[1])
+        id_df = pd.DataFrame(id_m, columns=self.preprocessor.pre_pca.keys())
+        lin_combo = self.preprocessor.decomposer.transform(id_df)
+        self.exp_df = pd.DataFrame(lin_combo, index=self.preprocessor.pre_pca.keys())
         return self
 
     def scale_perc_var_ratio(
         self,
     ):
-        self.scaled_exp_df = pd.DataFrame(index=self.p.pre_pca.keys())
-        for i, perc in enumerate(self.p.decomposer.explained_variance_ratio_):
+        self.scaled_exp_df = pd.DataFrame(index=self.preprocessor.pre_pca.keys())
+        for i, percent in enumerate(self.preprocessor.decomposer.explained_variance_ratio_):
             self.scaled_exp_df[f"pca_comp_{i}"] = (
                 self.exp_df[[1]]
-                * perc
-                / sum(self.p.decomposer.explained_variance_ratio_)
+                * percent
+                / sum(self.preprocessor.decomposer.explained_variance_ratio_)
             )
         return self
 
@@ -49,8 +49,8 @@ class HSI_explainability:
             scaled_zscore_df = np.array(zscore) * self.scaled_exp_df
             old = []
             for k in scaled_zscore_df.keys():
-                temp = np.argpartition(abs(scaled_zscore_df[k]), -self.numb_comps)[
-                    -self.numb_comps :
+                temp = np.argpartition(abs(scaled_zscore_df[k]), -self.number_components_explained)[
+                    -self.number_components_explained :
                 ]
                 for t in temp:
                     if t not in old:

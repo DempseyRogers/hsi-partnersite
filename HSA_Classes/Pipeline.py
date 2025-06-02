@@ -2,11 +2,11 @@ from copy import deepcopy
 import sys
 import os
 
-import HSI_Classes.Preprocessing as p
-import HSI_Classes.DataLoader as d
-import HSI_Classes.Model as m
-import HSI_Classes.Viz as v
-import HSI_Classes.Explainability
+import HSA_Classes.Preprocessing as hsa_preprocessing
+import HSA_Classes.DataLoader as hsa_dataset
+import HSA_Classes.Model as hsa_model
+import HSA_Classes.Viz as hsa_viz
+import HSA_Classes.Explainability
 from sklearn.decomposition import PCA as PCA
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
 from  loguru import logger as loguru_logger
@@ -36,7 +36,7 @@ class HSI_pipeline:
     def __init__(
         self,
         penalty_ratio: float,
-        cutoff_dist: float,
+        cutoff_distance: float,
         lr: float,
         anomaly_std_toll: float,
         bin_count: int,
@@ -58,7 +58,7 @@ class HSI_pipeline:
         num_workers: int = 10,
     ):
         self.penalty_ratio = penalty_ratio
-        self.cutoff_dist = cutoff_dist
+        self.cutoff_distance = cutoff_distance
         self.lr = lr
         self.anomaly_std_toll = anomaly_std_toll
         self.bin_count = bin_count
@@ -71,7 +71,7 @@ class HSI_pipeline:
         self.save_figures = save_figures
         self.logger.trace("HSI_pipeline has been generated")
         self.logger.info(
-            f"Trial Info:\ntype_map: {self.type_map}, penalty_ratio: {self.penalty_ratio}, cutoff_dist: {self.cutoff_dist}, lr: {self.lr}, anomaly_std_toll: {self.anomaly_std_toll}, bin_count: {self.bin_count}, max_spawn_dummies: {self.max_spawn_dummies}, percent_variance_exp: {self.percent_variance_exp}"
+            f"Trial Info:\ntype_map: {self.type_map}, penalty_ratio: {self.penalty_ratio}, cutoff_distance: {self.cutoff_distance}, lr: {self.lr}, anomaly_std_toll: {self.anomaly_std_toll}, bin_count: {self.bin_count}, max_spawn_dummies: {self.max_spawn_dummies}, percent_variance_exp: {self.percent_variance_exp}"
         )
         self.static_key = static_key
         self.save_preprocessed_np = save_preprocessed_np
@@ -120,7 +120,7 @@ class HSI_pipeline:
         self.logger.info("Preprocessing has begun.")
         pca = PCA()
         scaler = StandardScaler()
-        prep = p.HSI_preprocessing(
+        prep = hsa_preprocessing.HSI_preprocessing(
             pca,
             scaler,
             self.logger,
@@ -135,8 +135,8 @@ class HSI_pipeline:
             min_additional_percent_variance_exp=self.min_additional_percent_variance_exp,
         )
 
-        preprocessed_np = prep.df
-        self.logger.debug("Preprocessing is complete, data has been processed as a DF.")
+        preprocessed_np = prep.np
+        self.logger.debug("Preprocessing is complete, data has been processed as a np.array ready for use in Torch.")
         if len(preprocessed_np) == 0:
             preprocess_warning = (
                 "Did not return data from preprocessing! HSI_Preprocessing.py"
@@ -153,9 +153,9 @@ class HSI_pipeline:
         # Hyper params -- unique to each HSI model, are contained in unique HSI_Model_Configs/
         # Number of workers used in optimization steps
         self.logger.trace("Hyper and Batch parameters are being passed to HSI_model.")
-        model = m.HSI_model(
+        model = hsa_model.HSI_model(
             self.penalty_ratio,
-            self.cutoff_dist,
+            self.cutoff_distance,
             self.converge_toll,
             self.anomaly_std_toll,
             self.affinity_matrix_iterations,
@@ -164,7 +164,7 @@ class HSI_pipeline:
             multifilter_flag,
         )
         self.logger.trace("Data is passed to HSI_dataset to make torch dataset.")
-        dataset = d.HSI_dataset(preprocessed_np, self.logger)
+        dataset = hsa_dataset.HSI_dataset(preprocessed_np, self.logger)
         self.logger.info("Dataset is passed to Dataloader.")
         loader = DataLoader(dataset, batch_size=num_samples, num_workers=num_workers)
 
@@ -249,16 +249,16 @@ class HSI_pipeline:
             # Multifilter Model
             try:
                 for i in range(multi_filters):
-                    batch_dataset = d.HSI_dataset(mf_data, self.logger)
+                    batch_dataset = hsa_dataset.HSI_dataset(mf_data, self.logger)
                     batch_loader = DataLoader(
                         batch_dataset, batch_size=num_samples, num_workers=num_workers
                     )
                     j = 0
                     for data in batch_loader:
                         # # Set up multi filter model
-                        MF_model = m.HSI_model(
+                        MF_model = hsa_model.HSI_model(
                             self.penalty_ratio,
-                            self.cutoff_dist,
+                            self.cutoff_distance,
                             converge_toll,
                             self.anomaly_std_toll,
                             affinity_matrix_iterations,
@@ -306,8 +306,8 @@ class HSI_pipeline:
                 sys.exit()
             self.logger.success("Multifilter Complete.")
 
-            viz = v.HSI_viz(
-                MF_model.m,
+            viz = hsa_viz.HSI_viz(
+                MF_model.hsa_model,
                 MF_model.preprocessed_np,
                 num_samples,
                 0,
@@ -374,7 +374,7 @@ class HSI_pipeline:
             temp_df = pd.DataFrame(
                 {
                     "penalty_ratio": [self.penalty_ratio],
-                    "cutoff_dist": [self.cutoff_dist],
+                    "cutoff_distance": [self.cutoff_distance],
                     "anomaly_std_toll": [self.anomaly_std_toll],
                     "lr": [self.lr],
                     "bin_count": [self.bin_count],

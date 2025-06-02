@@ -9,22 +9,22 @@ class HSI_model:
     def __init__(
         self,
         penalty_ratio: float,
-        cutoff_dist: float,
+        cutoff_distance: float,
         converge_toll: float,
         anomaly_std_toll: float,
         affinity_matrix_iterations: int,
         lr: float,
         logger: loguru_logger,
-        m0: int = 0,
+        init_anomaly_score: int = 0,
         multifilter_flag: int = 0,
     ):
         self.logger = logger
 
         @self.logger.catch
         def get_free_gpu():
-            """Looks at allocated memory on all available devices and returns device with most available memory."""
+            """Looks at allocated memory on all available devices and returns device with most available memory. DEPRECATED by any scheduler software. """
 
-            allocated_mem = 1000
+            allocated_mem = 1000  # set arbitrarily large
             free_device = "cuda:0"
             if t.cuda.is_available():
                 for device in range(t.cuda.device_count()):
@@ -42,11 +42,11 @@ class HSI_model:
 
         self.device = get_free_gpu()
         self.penalty_ratio = penalty_ratio
-        self.dc = cutoff_dist
+        self.cutoff_distance = cutoff_distance
         self.stopping_toll = converge_toll
         self.std_toll = anomaly_std_toll
         self.affinity_matrix_iterations = affinity_matrix_iterations
-        self.m0 = m0
+        self.init_anomaly_score = init_anomaly_score
         self.multifilter_flag = multifilter_flag
         self.lr = lr
         self.logger = logger
@@ -91,8 +91,8 @@ class HSI_model:
             + self.unique_id_str
             + f"_start_idx-{str(self.start_idx)}_num_samples-{str(self.num_samples)}"
         )
-        if self.m0 == 0:
-            self.m_old = (
+        if self.init_anomaly_score == 0:
+            self.anomaly_score_old = (
                 np.ones(len(self.preprocessed_np)) * 1000
             )  # make the initial m for difference greater than stopping_toll
             self.m = np.random.rand(
@@ -118,14 +118,14 @@ class HSI_model:
 
         self.distances = t.sqrt(sum_sqr).requires_grad_(False)
         self.vertWeights = (
-            t.sum(t.exp(-t.square(t.div(self.distances, self.dc))), 1)
+            t.sum(t.exp(-t.square(t.div(self.distances, self.cutoff_distance))), 1)
             .unsqueeze(-1)
             .requires_grad_(False)
             .type(t.DoubleTensor)
             .to(self.device)
         )
         self.edgeWeights = (
-            t.exp(-t.div(self.distances, self.dc**2))
+            t.exp(-t.div(self.distances, self.cutoff_distance**2))
             .requires_grad_(False)
             .type(t.DoubleTensor)
             .to(self.device)
@@ -217,7 +217,7 @@ class HSI_model:
         """Using the evolved edge weight information and initialized anomaly scores minimize the penalized objective fxn. Optimize for each power of the evolution using the previous best anomaly score."""
 
         lr = self.lr
-        m_old = t.from_numpy(self.m_old).to(self.device)
+        anomaly_score_old = t.from_numpy(self.anomaly_score_old).to(self.device)
         vert_weight = self.vertWeights
         pr = t.tensor(self.penalty_ratio).requires_grad_(True).to(self.device)
         anomaly_score = t.from_numpy(self.m).to(self.device)
@@ -282,7 +282,7 @@ class HSI_model:
         
         # cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
         anomaly_score = cmp_opt_loop(
-            self.sets, self.stopping_toll, anomaly_score, pr, vert_weight, m_old, m_old
+            self.sets, self.stopping_toll, anomaly_score, pr, vert_weight, anomaly_score_old, anomaly_score_old
         )
 
         self.m = anomaly_score.cpu().detach().numpy()

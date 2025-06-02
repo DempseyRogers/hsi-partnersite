@@ -47,11 +47,6 @@ class HSI_Image_preprocessing:
                     for dk in d.keys():
                         df[dk] = d[dk]
                     df.drop(k, axis=1, inplace=True)
-        time = []
-        for t in df["duration"]:
-            time.append(t.total_seconds())
-        df.drop("duration", axis=1, inplace=True)
-        df["duration"] = time
         scaled = self.scaler.fit_transform(df)
         df = pd.DataFrame(scaled, columns=df.keys())
         self.df = df
@@ -67,24 +62,22 @@ class HSI_Image_preprocessing:
         min_additional_percent_variance_exp is not achieved."""
 
         pca = self.decomposer.fit(self.df)
-        diff = []
+        additional_percent_variance = []
         sum_exp_var = 0
-        per_exp = percent_variance_exp
-        min_additional_percent_variance_exp = min_additional_percent_variance_exp
-        for num_comp in range(len(pca.explained_variance_ratio_)):
+        for number_components in range(len(pca.explained_variance_ratio_)):
             temp = sum_exp_var
-            sum_exp_var += pca.explained_variance_ratio_[num_comp]
-            diff.append(sum_exp_var - temp)
-            if sum_exp_var > per_exp:
+            sum_exp_var += pca.explained_variance_ratio_[number_components]
+            additional_percent_variance.append(sum_exp_var - temp)
+            if sum_exp_var > percent_variance_exp:
                 print(
-                    f"{num_comp} components account for %{np.round(100*sum_exp_var,2)} of variance\nAcheived %{100*percent_variance_exp}"
+                    f"{number_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAcheived %{100*percent_variance_exp}"
                 )
                 break
-            if diff[-1] < min_additional_percent_variance_exp:
+            if additional_percent_variance[-1] < min_additional_percent_variance_exp:
                 print(
-                    f"{num_comp} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_additional_percent_variance_exp} explanation of variance"
+                    f"{number_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_additional_percent_variance_exp} explanation of variance"
                 )
                 break
-        self.decomposer.set_params(n_components=num_comp)
+        self.decomposer.set_params(n_components=number_components)
         self.df = self.decomposer.fit_transform(self.df)
-        self.num_comp = num_comp
+        self.number_components = number_components

@@ -28,7 +28,7 @@ Collaboration with the INL analyst team is encouraged for all DEV work flow chal
 ### Efficiently Fitting the Model
 The Splunk CLI is used to pull data from Splunk, called in the utils.py get_data_from_splunk module. This method is not particularly fast. It is recommended to download a data set generated from your query. 
 
-- HSI_Classes/download_data.py
+- HSA_Classes/download_data.py
   - Edit lines 4 and 14, to reflect your query and desired data download location respectively. 
 - HSI_Model_Configs/DEVELOPMENT/{new_model_config}.py
   - Edit the downloaded_data_directory inside teh new models configuration file to match your data downloaded location. 
@@ -63,10 +63,10 @@ The Splunk CLI is used to pull data from Splunk, called in the utils.py get_data
 
 - Modeling
     - penalty_ratio = 0.75  
-      -  Penalty$^n$ for powers of affinity matrix, applied in HSI_Classes/HSI_Model.py Penalized Objective Function.
+      -  Penalty$^n$ for powers of affinity matrix, applied in HSA_Classes/HSI_Model.py Penalized Objective Function.
       -  Increases the importance of data similarity across different topological scales.
       -  Increasing this value increases model generalizability and anomalies predicted.
-    - cutoff_dist = 3  
+    - cutoff_distance = 3  
       - Cut off distance for weight sets
       - Increasing this value increases generalizability and anomalies predicted.
       - Increases width of gaussian which informs the similarity metric.
@@ -101,7 +101,7 @@ After the migration is complete, verify that the job is running as expected.
 # Production Models
 Production Models configurations are set in the project HSI_Model_Configs. Standard config files include a splunk query, data type index to be included in modeling, and an instantiation of the  HSI_pipe.HSI_pipeline([desired hyper params]).infer() 
 ```
-import HSI_Classes.HSI_Pipeline as HSI_pipe
+import HSA_Classes.HSI_Pipeline as HSI_pipe
 from loguru import logger
 
 query_date= f"search earliest={-8+d}d@d latest={-1+d}d@d index=summary source=corelight_notice_long_connection "
@@ -120,7 +120,7 @@ model = HSI_pipe.HSI_pipeline(
     tfidf_ip_count,
     ip_keys,
     penalty_ratio,
-    cutoff_dist,
+    cutoff_distance,
     lr,
     anomaly_std_toll,
     bin_count,

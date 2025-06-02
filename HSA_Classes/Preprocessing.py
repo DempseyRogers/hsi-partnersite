@@ -433,13 +433,13 @@ class HSI_preprocessing:
         scaled = self.scaler.fit_transform(df)
 
         df = pd.DataFrame(scaled, columns=df.keys())
-        self.df = df
+        self.preprocessed_df = df
         self.logger.trace("Preprocessing Encoding Complete. ")
-        for key in self.df.keys():
+        for key in self.preprocessed_df.keys():
             if self.df[key].isnull().any():
-                if len(self.df[key].unique()) ==1:
-                    self.df.drop(key, axis = 1, inplace = True)
-        self.df.dropna(inplace=True)
+                if len(self.preprocessed_df[key].unique()) ==1:
+                    self.preprocessed_df.drop(key, axis = 1, inplace = True)
+        self.preprocessed_df.dropna(inplace=True)
 
         return max_spawn
 
@@ -468,7 +468,7 @@ class HSI_preprocessing:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_additional_percent_variance_exp} explanation of variance"
                 break
         self.decomposer.set_params(n_components=n_components)
-        self.df = self.decomposer.fit_transform(self.df)
+        self.np = self.decomposer.fit_transform(self.df)
         self.n_components = n_components
         self.logger.debug(
             "Number of components selected by percent variance explained completed."

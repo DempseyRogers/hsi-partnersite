@@ -231,8 +231,6 @@ class HSI_model:
             _m_old: t.Tensor,
             _m_mid: t.Tensor,
         ):
-            # affinity_m = _sets[0][1]
-            # d_matrix = _sets[1][1]
             for i in range(len(self.sets[0])):
                 m = _anomaly_score.requires_grad_(False)
                 affinity_m = _sets[0][i]
@@ -279,7 +277,10 @@ class HSI_model:
                 )
             return _anomaly_score
 
-        cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
+        cmp_opt_loop = t.compile(mac_opt_loop, fullgraph=False)
+        # cmp_opt_loop = mac_opt_loop #5.8s
+        
+        # cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
         anomaly_score = cmp_opt_loop(
             self.sets, self.stopping_toll, anomaly_score, pr, vert_weight, m_old, m_old
         )

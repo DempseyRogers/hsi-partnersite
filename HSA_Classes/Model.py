@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import torch as t
-from sys import exit
-from  loguru import logger as loguru_logger
+from loguru import logger as loguru_logger
+
 
 class HSA_model:
 
@@ -22,7 +22,7 @@ class HSA_model:
 
         @self.logger.catch
         def get_free_gpu():
-            """Looks at allocated memory on all available devices and returns device with most available memory. DEPRECATED by any scheduler software. """
+            """Looks at allocated memory on all available devices and returns device with most available memory. DEPRECATED by any scheduler software."""
 
             allocated_mem = 1000  # set arbitrarily large
             free_device = "cuda:0"
@@ -75,7 +75,7 @@ class HSA_model:
         self.logger.trace("HSA Model trials set.")
         return self
 
-    def readData(
+    def read_data(
         self,
         data_multifilter_df: list = [],
     ):
@@ -101,7 +101,7 @@ class HSA_model:
         self.logger.debug("Initial random anomaly index set.")
         return self
 
-    def vertWeights_distances(
+    def vertex_weights_distances(
         self,
     ):
         """Defines model weights dependant on pixel separation in function space
@@ -133,7 +133,7 @@ class HSA_model:
         self.logger.debug("HSA Model Weight Generated.")
         return self
 
-    def affinityGen(
+    def weight_generation(
         self,
     ):
         """Equation 2: Vertex weights * Identity to generate gamma matrix in eq 7
@@ -161,7 +161,7 @@ class HSA_model:
         self.logger.debug("HSA Graphs generated.")
         return self
 
-    def graphEvo(
+    def graph_evolution(
         self,
     ):
         """Edge weight information is evolved by powers of the affinity  and D matrices. Vertex weights do not need to evolve. Each power of these is needed for optimization of the quadratic in Equation 10. Returns List of sets of matrix to power:  [[A^1,A^2, A^3...A^k],[D^1,D^2, D^3...D^k]]"""
@@ -190,7 +190,7 @@ class HSA_model:
         """Equation 10: The quadratic objective fxn  = obj [nx1]
         Equation 11: Best interpretation of constraint eqn/ Penalty terms
         Equation 12: Function to be minimized by choice of anomaly scores
-            - best interp: no defn of U, no summation preformed here
+            - best interpretation: no definition of U, no summation preformed here
         r: penalty scaling that must approach 0 as nu -->k=iter_steps"""
 
         obj = (1 / 2) * t.matmul(
@@ -279,16 +279,22 @@ class HSA_model:
 
         cmp_opt_loop = t.compile(mac_opt_loop, fullgraph=False)
         # cmp_opt_loop = mac_opt_loop #5.8s
-        
+
         # cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
         anomaly_score = cmp_opt_loop(
-            self.sets, self.stopping_toll, anomaly_score, pr, vert_weight, anomaly_score_old, anomaly_score_old
+            self.sets,
+            self.stopping_toll,
+            anomaly_score,
+            pr,
+            vert_weight,
+            anomaly_score_old,
+            anomaly_score_old,
         )
 
         self.m = anomaly_score.cpu().detach().numpy()
         self.logger.debug("HSA Torch optimization complete.")
 
-    def model_Predictions(
+    def model_predictions(
         self, df: pd.DataFrame, multifilter_flag: int = 0, user_location: list = []
     ):
         """Measures the distance from the mean in std for each minimized anomaly score.
@@ -341,27 +347,27 @@ class HSA_model:
         )  # assign equal prob of selecting good
         prob_vec[predicted_anomaly_idx] = 0  # assign 0 prob of grabbing anomaly again
 
-        padded_nonanomaly_index = np.random.choice(
+        padding_index = np.random.choice(
             len(self.preprocessed_np),
             self.batch_size - len(predicted_anomaly_idx),
             p=prob_vec,
-        )  # random select nonAnom data from current preprocessed_np
+        )  # randomly select non-anomalous data from current preprocessed_np
         predicted_anomaly_data = self.preprocessed_np[predicted_anomaly_idx]
         mix_data = np.append(
             predicted_anomaly_data,
-            self.preprocessed_np[padded_nonanomaly_index],
+            self.preprocessed_np[padding_index],
             axis=0,
         )
 
-        predicted_anom = (
+        predicted_anomaly = (
             predicted_anomaly_idx + self.start_idx
         )  # add start idx to match raw user_df data (whole without pca)
-        index_padding = padded_nonanomaly_index + self.start_idx
+        index_padding = padding_index + self.start_idx
         mix_index = np.append(
-            predicted_anom, index_padding
+            predicted_anomaly, index_padding
         )  # concat so that anomaly~%10
         self.logger.trace("Local Multifilter Complete")
-        return mix_index, mix_data, predicted_anom
+        return mix_index, mix_data, predicted_anomaly
 
     def global_collect_multifilter_df(
         self,
@@ -378,17 +384,17 @@ class HSA_model:
         prob_vec[total_anomaly_index] = 0
         prob_vec = prob_vec / sum(prob_vec)
 
-        padded_nonanomaly_index = np.random.choice(
+        padding_index = np.random.choice(
             len(total_preprocessed_np), mf_batch_size, p=prob_vec
-        )  # random select nonAnom data from current preprocessed_np
+        )  # random select non-anomalous data from current preprocessed_np
         mix_data = np.append(
             total_preprocessed_np[total_anomaly_index],
-            total_preprocessed_np[padded_nonanomaly_index],
+            total_preprocessed_np[padding_index],
             axis=0,
         )
 
         mix_index = np.append(
-            total_anomaly_index, padded_nonanomaly_index
+            total_anomaly_index, padding_index
         )  # concat so that anomaly~%10
 
         self.logger.trace("Global Multifilter Complete.")
@@ -398,7 +404,7 @@ class HSA_model:
         self,
         mix_index: np.ndarray,
         mix_data: np.ndarray,
-        predicted_anom: int,
+        predicted_anomaly: int,
     ):
         """Works in conjunction with the collect_multifilter_df methods
         by randomly shuffling the anomalies and background data and indices
@@ -412,7 +418,7 @@ class HSA_model:
         self.all_data = mix_data[self.shuffler]  # same shuffle for data
 
         self.current_anomaly_index = np.where(
-            np.in1d(self.all_index_user, predicted_anom)
+            np.in1d(self.all_index_user, predicted_anomaly)
         )
         self.all_index_mf = self.all_index_user - self.start_idx
         self.logger.trace("Multifiltered data has been shuffled.")

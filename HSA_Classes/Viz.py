@@ -1,17 +1,10 @@
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import time
 from datetime import datetime
-import logging
-import os
-import torch as t
-from torch.utils.data import Dataset
-import sys
-import re
 from sklearn.feature_extraction.text import TfidfVectorizer as vecorizer
-from  loguru import logger as loguru_logger
+from loguru import logger as loguru_logger
+
 
 class HSA_viz:
 
@@ -125,7 +118,12 @@ class HSA_viz:
         if self.figures:
             fig, axes = plt.subplots(1, 3, figsize=(25, 30))
             # print(len([np.transpose(self.m)]))
-            sns.heatmap((np.array(self.m, ndmin=2).transpose()), ax=axes[0], cbar=False, cmap="viridis")
+            sns.heatmap(
+                (np.array(self.m, ndmin=2).transpose()),
+                ax=axes[0],
+                cbar=False,
+                cmap="viridis",
+            )
             axes[0].set_title("Raw Anomaly Score")
             axes[0].set_ylabel("Pixel")
             axes[0].set_xlabel("Score")

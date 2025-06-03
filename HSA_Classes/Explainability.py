@@ -16,7 +16,7 @@ class HSA_explainability:
         self.results_df = results_df
         self.number_components_explained = number_components_explained
 
-    def pca_lin_combo(
+    def pca_linear_combo(
         self,
     ):
         id_m = np.identity(self.preprocessor.pre_pca.shape[1])
@@ -25,11 +25,13 @@ class HSA_explainability:
         self.exp_df = pd.DataFrame(lin_combo, index=self.preprocessor.pre_pca.keys())
         return self
 
-    def scale_perc_var_ratio(
+    def scale_percent_variance_ratio(
         self,
     ):
         self.scaled_exp_df = pd.DataFrame(index=self.preprocessor.pre_pca.keys())
-        for i, percent in enumerate(self.preprocessor.decomposer.explained_variance_ratio_):
+        for i, percent in enumerate(
+            self.preprocessor.decomposer.explained_variance_ratio_
+        ):
             self.scaled_exp_df[f"pca_comp_{i}"] = (
                 self.exp_df[[1]]
                 * percent
@@ -37,7 +39,7 @@ class HSA_explainability:
             )
         return self
 
-    def explain_pred(
+    def explain_prediction(
         self,
     ):
         feature_means = np.average(self.preprocessed_np, axis=0)
@@ -49,9 +51,9 @@ class HSA_explainability:
             scaled_zscore_df = np.array(zscore) * self.scaled_exp_df
             old = []
             for k in scaled_zscore_df.keys():
-                temp = np.argpartition(abs(scaled_zscore_df[k]), -self.number_components_explained)[
-                    -self.number_components_explained :
-                ]
+                temp = np.argpartition(
+                    abs(scaled_zscore_df[k]), -self.number_components_explained
+                )[-self.number_components_explained :]
                 for t in temp:
                     if t not in old:
                         old.append(t)

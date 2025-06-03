@@ -6,30 +6,17 @@ import HSA_Classes.Preprocessing as hsa_preprocessing
 import HSA_Classes.DataSet as hsa_dataset
 import HSA_Classes.Model as hsa_model
 import HSA_Classes.Viz as hsa_viz
-import HSA_Classes.Explainability
 from sklearn.decomposition import PCA as PCA
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
-from  loguru import logger as loguru_logger
+from loguru import logger as loguru_logger
 import numpy as np
 import pandas as pd
 import time
-import re
-import torch
 from torch.utils.data import DataLoader
-from datetime import datetime, timedelta
 
 
 ################################################################################
 # HSA Script functionality calls keys, utils, HSA_class, and unique_query_preprocessing
-# For modularity and consistency the only two scripts that need modified for future models are unique_query
-# and potentially the HSA_class.  The unique query script contains storage directory locations, query, and the tunable
-# hyper parameters. The HSA_class contains the preprocessing class. Depending on analyst needs a custom function
-# may be needed in the preprocessing class. Otherwise the HSA_class will remain the same.
-# All tunable hyper parameters are contained in the unique_query_preprocessing.py
-# HSA_auto should now be generic for all sites and queries
-# HSA_class may contain unique preprocessing functions in the preprocessing class depending on the query and specific needs
-# keys contains log in information to access splunk and other databases
-# utils contains custom functions for all models to collect .json data from splunk.
 ################################################################################
 class HSA_pipeline:
 
@@ -133,7 +120,9 @@ class HSA_pipeline:
         )
 
         preprocessed_np = prep.np
-        self.logger.debug("Preprocessing is complete, data has been processed as a np.array ready for use in Torch.")
+        self.logger.debug(
+            "Preprocessing is complete, data has been processed as a np.array ready for use in Torch."
+        )
         if len(preprocessed_np) == 0:
             preprocess_warning = (
                 "Did not return data from preprocessing! HSA_Preprocessing.py"
@@ -158,12 +147,14 @@ class HSA_pipeline:
             self.affinity_matrix_iterations,
             self.lr,
             self.logger,
-            multifilter_flag = 0,
+            multifilter_flag=0,
         )
         self.logger.trace("Data is passed to HSA_dataset to make torch dataset.")
         dataset = hsa_dataset.HSA_dataset(preprocessed_np, self.logger)
         self.logger.info("Dataset is passed to Dataloader.")
-        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        loader = DataLoader(
+            dataset, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
         # Set storage location for outputs
         total_anomaly_index = np.array([])
@@ -185,7 +176,9 @@ class HSA_pipeline:
             i = 0  # for displaying epoch progress as completed
             self.logger.info("Starting to run through the dataloader on initial pass.")
             for data in loader:  # setting up gpus
-                model.set_trial(i * self.batch_size, self.batch_size, self.unique_id_str)
+                model.set_trial(
+                    i * self.batch_size, self.batch_size, self.unique_id_str
+                )
                 if (
                     self.verbose
                     and int(len(loader) / 8)
@@ -194,13 +187,13 @@ class HSA_pipeline:
                     print(f"\rEpoch {np.round(100*i/len(loader),2)}%")
 
                 # Model set up and weight generation
-                model.readData(
+                model.read_data(
                     data_multifilter_df=data.squeeze(0)
-                ).vertWeights_distances().affinityGen().graphEvo()
+                ).vertex_weights_distances().weight_generation().graph_evolution()
                 # Training steps
                 model.torch_optimize_POF(iterations=self.iterations)
                 # Prediction step
-                model.model_Predictions(df)
+                model.model_predictions(df)
                 # Store anomalous predictions throughout all batches for use in multi filter
                 total_anomaly_index = np.append(total_anomaly_index, model.x_label)
                 i += 1
@@ -218,7 +211,9 @@ class HSA_pipeline:
         anomaly_prediction_frequency_df = pd.DataFrame()
         anomaly_prediction_frequency_df["User DF Index"] = anomaly_index
         anomaly_prediction_frequency_df.set_index("User DF Index")
-        anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(len(anomaly_index))
+        anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(
+            len(anomaly_index)
+        )
 
         # Randomly shuffle anomalies from all batches in unison
         model.uni_shuffle_multifilter_df(
@@ -244,7 +239,9 @@ class HSA_pipeline:
                 for i in range(self.multi_filters):
                     batch_dataset = hsa_dataset.HSA_dataset(mf_data, self.logger)
                     batch_loader = DataLoader(
-                        batch_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+                        batch_dataset,
+                        batch_size=self.batch_size,
+                        num_workers=self.num_workers,
                     )
                     j = 0
                     for data in batch_loader:
@@ -263,18 +260,20 @@ class HSA_pipeline:
                             self.log_directory, self.results_directory
                         )
                         MF_model.set_trial(j * len(data), len(data), self.unique_id_str)
-                        MF_model.readData(
+                        MF_model.read_data(
                             data_multifilter_df=data.squeeze(0)
-                        ).vertWeights_distances().affinityGen().graphEvo()
+                        ).vertex_weights_distances().weight_generation().graph_evolution()
 
                         # # Train MF_MODEL
                         MF_model.torch_optimize_POF(iterations=self.iterations)
-                        MF_model.model_Predictions(
+                        MF_model.model_predictions(
                             df, multifilter_flag=1, user_location=user_location
                         )
                         j += 1
                     anomaly_prediction_frequency_df.loc[
-                        anomaly_prediction_frequency_df["User DF Index"].isin(MF_model.x_label),
+                        anomaly_prediction_frequency_df["User DF Index"].isin(
+                            MF_model.x_label
+                        ),
                         "Anomaly Bin Count",
                     ] += 1
 
@@ -322,7 +321,9 @@ class HSA_pipeline:
             # Count how many times an anomaly occurs in the multifilter --> log
             for u in anomaly_prediction_frequency_df["Anomaly Bin Count"].unique():
                 c = len(
-                    anomaly_prediction_frequency_df[anomaly_prediction_frequency_df["Anomaly Bin Count"] == u]
+                    anomaly_prediction_frequency_df[
+                        anomaly_prediction_frequency_df["Anomaly Bin Count"] == u
+                    ]
                 )
                 self.logger.info(
                     f"{c} Anomalies were predicted {u} times in MultiFilter"
@@ -333,21 +334,27 @@ class HSA_pipeline:
             pd.options.mode.copy_on_write = True
             results_df = df_raw.iloc[
                 anomaly_prediction_frequency_df[
-                    anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
+                    anomaly_prediction_frequency_df["Anomaly Bin Count"]
+                    > self.bin_count
                 ]["User DF Index"]
             ]
             results_df["Anomaly Bin Count"] = list(
                 anomaly_prediction_frequency_df[
-                    anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
+                    anomaly_prediction_frequency_df["Anomaly Bin Count"]
+                    > self.bin_count
                 ]["Anomaly Bin Count"]
             )
             results_df["User DF Index"] = list(
                 anomaly_prediction_frequency_df[
-                    anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
+                    anomaly_prediction_frequency_df["Anomaly Bin Count"]
+                    > self.bin_count
                 ]["User DF Index"]
             )
             if self.verbose:
-                print("Results DF:", results_df.sort_values("Anomaly Bin Count", ascending=False))
+                print(
+                    "Results DF:",
+                    results_df.sort_values("Anomaly Bin Count", ascending=False),
+                )
             self.logger.trace("Results DF has been generated.")
             self.logger.debug(
                 f"Standard run time {np.round((tend-time_start)/60,2)} for loader size of {self.batch_size}"
@@ -356,12 +363,13 @@ class HSA_pipeline:
                 100
                 * len(
                     anomaly_prediction_frequency_df[
-                        anomaly_prediction_frequency_df["Anomaly Bin Count"] > self.bin_count
+                        anomaly_prediction_frequency_df["Anomaly Bin Count"]
+                        > self.bin_count
                     ]["User DF Index"]
                 )
                 / len(anomaly_prediction_frequency_df)
             )
-            
+
             self.logger.debug(
                 "Parameter df has been updated with multifilter consistency metrics"
             )
@@ -375,10 +383,10 @@ class HSA_pipeline:
                 0
             )  # set read write permissions for universal read so universal forwarder can see output.
             results_file = f"Results_{self.run_date}.json"
-          
+
             path = f"{self.results_directory}/"
             write = path + results_file
-            
+
             # if self.lookback_days:
             #     results_df = utils.filter_prior_predictions(
             #         path,
@@ -392,7 +400,7 @@ class HSA_pipeline:
                 results_df.drop("level_0", axis=1, inplace=True)
 
             results_df.set_index("User DF Index").to_json(write, orient="records")
-            
+
             self.logger.success(
                 f"Results DF saved to {write}, run is complete. There are {len(results_df)} anomalies predicted."
             )

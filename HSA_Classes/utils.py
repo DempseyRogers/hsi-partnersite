@@ -1,242 +1,17 @@
-from pathlib import Path
 import pandas as pd
 import numpy as np
 import datetime
-import splunklib.client as client
-import splunklib.results as results
-from tqdm import tqdm
-import os
-
-keys_path = "/opt/mlshare"
 import sys
-
-sys.path.append(keys_path)
-from keys import *
-import json
-import yaml
 import datetime
-
-SEVERITY_MAP = {
-    "normal": ("normal", "normal"),
-    "informational": ("low", "low"),
-    "low": ("low", "medium"),
-    "medium": ("medium", "medium"),
-    "high": ("medium", "high"),
-    "critical": ("high", "high"),
-}
-
-
-def read_yaml(file_path):
-    """Read a YAML file and return its results"""
-    with open(file_path, "r") as f:
-        return yaml.safe_load(f)
-
-
-def config_get_or_default(config, key, default=None):
-    """Given a config (dictionary) return the value at location \"key\" or a given default (None if not provided)"""
-    try:
-        return config[key]
-    except:
-        if default:
-            return default
-        else:
-            return config["DEFAULT"]
-
-
-def filter_by_site(df, site_number):
-    """Filter a dataframe to a given site using \"orig_splunk_server\" DEPRECATED"""
-    return df[
-        (df["orig_splunk_server"].str.slice(1, 2) == f"{site_number}")
-        | (df["orig_splunk_server"] == f"indexer1.site{site_number}.cs.dhs")
-    ]
-
-
-def get_site(df):
-    """Add \"site\" to dataframe with orig_splunk_server DEPRECATED"""
-    df["site"] = -1
-    for site in range(10):
-        df.loc[
-            (df["orig_splunk_server"].str.slice(1, 5) == f"{site}IDX")
-            | (df["orig_splunk_server"] == f"indexer1.site{site}.cs.dhs"),
-            "site",
-        ] = site
-
-    return df
-
-
-## Earliest and latest are given as integer days.
-def chunk_query(query, earliest, latest=1):
-    """Query splunk using a given query, filtering by relative date given as integer offsets from the current date.
-    Also chunks the results which seems to be faster and more accurate"""
-    splunk_args = get_splunk_args(earliest, latest)
-
-    data = []
-    for args in splunk_args:
-        data.append(get_data_from_splunk(query, args))
-
-    return pd.concat(data, ignore_index=True)
-
-
-def get_splunk_args(earliest, latest):
-    """Converts earliest and latest which are number of day offsets to many hourly offsets to facilitate chunking a query"""
-    num_chunks = 24 * (earliest - latest)
-
-    kwargs = []
-    for offset in range(num_chunks):
-        if offset < 24:
-            kwargs.append(
-                {
-                    "earliest_time": f"-{earliest}d@d+{offset}h",
-                    "latest_time": f"-{earliest}d@d+{offset+1}h",
-                }
-            )
-        else:
-            offset_days = int(offset / 24)
-            offset_hours = offset % 24
-
-            kwargs.append(
-                {
-                    "earliest_time": f"-{earliest-offset_days}d@d+{offset_hours}h",
-                    "latest_time": f"-{earliest-offset_days}d@d+{offset_hours+1}h",
-                }
-            )
-
-    return kwargs
-
-
-def get_data_from_splunk(query, kwargs):
-    """Simplest way to get data from splunk."""
-    job = create_splunk_job(query, kwargs, use_ml2=False)
-    wait_for_job_to_complete(job)
-    return get_results_from_job(job)
-
-
-def create_splunk_job(query, kwargs, use_ml2=False):
-    """Creates and returns a splunk job for a given query"""
-    if use_ml2:
-
-        HOST = "10.5.5.59"
-        PORT = 8089
-
-    else:
-
-        HOST = "10.5.8.10"
-        PORT = "8089"
-
-    # print(f"This is the HOST:{HOST} and the PORT:{PORT}")
-    service = client.connect(
-        host=HOST, port=PORT, username=user, password=password, verify=False
-    )
-
-    job = service.jobs.create(query, **kwargs)
-
-    return job
-
-
-def wait_for_job_to_complete(job):
-    while not job.is_done():
-        pass
-
-
-def get_results_from_job(job):
-    """Gets the results from a completed job in increments of 49000 since more than that is prohibited"""
-    search_results_json = []
-    get_offset = 0
-    max_get = 49000
-    result_count = int(job["resultCount"])
-
-    while get_offset < result_count:
-        r = job.results(
-            **{"count": max_get, "offset": get_offset, "output_mode": "json"}
-        )
-        obj = json.loads(r.read())
-        search_results_json.extend(obj["results"])
-        get_offset += max_get
-
-    df = pd.DataFrame(search_results_json)
-
-    return df
-
-
-def query_yesterday(query, earliest=None, latest=None, site=None):
-    """Create a splunk query between earliest and latest which are relative day offsets from today. If not provided it defaults to yesterday. DEPRECATED"""
-    HOST = "10.5.8.10"
-    PORT = 8089
-
-    service = client.connect(
-        host=HOST, port=PORT, username=user, password=password, verify=False
-    )
-
-    if earliest is None:
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-        kwargs = {"earliest_time": yesterday.strftime("%Y-%m-%dT%H:%M:%S"), "count": 0}
-        if latest is not None:
-            kwargs["latest_time"] = latest.strftime("%Y-%m-%dT%H:%M:%S")
-    elif type(earliest) is int:
-        kwargs = {"earliest_time": f"-{earliest}d@d", "count": 0}
-        if latest is not None:
-            kwargs["latest_time"] = f"-{latest}d@d"
-    else:
-        print("Incorrect format for yesterday")
-
-    print(f"Getting data")
-
-    job = service.jobs.create(query, **kwargs)
-
-    print("waiting ", end="")
-    while not job.is_done():
-        print(".", end="")
-    print(" Done!")
-
-    search_results_json = []
-    get_offset = 0
-    max_get = 49000
-    result_count = int(job["resultCount"])
-
-    while get_offset < result_count:
-        r = job.results(
-            **{"count": max_get, "offset": get_offset, "output_mode": "json"}
-        )
-        obj = json.loads(r.read())
-        search_results_json.extend(obj["results"])
-        get_offset += max_get
-
-    df = pd.DataFrame(search_results_json)
-
-    if site is not None:
-        return filter_by_site(df, site)
-
-    return df
-
-
-def get_yesterday():
-    return datetime.datetime.now() - datetime.timedelta(days=1)
-
-
-## This is used by kerberos and cannot be removed currently
-def query_last_week(query, time_back_start=7, time_back_end=1, site=None):
-    # HOST='10.5.8.10'
-    # PORT=8089
-
-    df = chunk_query(query, earliest=time_back_start, latest=time_back_end)
-
-    if site is not None:
-        return filter_by_site(df, site)
-
-    return df
-
-
-def get_last_week():
-    return datetime.datetime.now() - datetime.timedelta(days=7)
 
 
 def remove_predefined_ips(ip_df, ip_key):
     """INPUTS ip_df: pd.DataFrame(), ip_key: str OUTPUTS quads_df --> pd_DataFrame['q0','q1','q2','q3'] filtered_ips_df --> pd_DataFrame['ips'].
     Takes a dataframe and filters out private ranges, loop back ranges, link local ranges, test ranges, and multicast ranges
-    as defined by: https://www.auvik.com/franklyit/blog/special-ip-address-ranges/ per Joseph McDanagh's recommendation on 9/16/2024
+    as defined by: https://www.auvik.com/franklyit/blog/special-ip-address-ranges/ on 9/16/2024
     """
 
-    # Input Data Frame Checks  all logging istances here will be at the critical level.
+    # Input Data Frame Checks  all logging instances here will be at the critical level.
     def check_df_type(df, ip_keys, col_type):
         for ip_key in ip_keys:
             if isinstance(df, pd.DataFrame):
@@ -271,7 +46,7 @@ def remove_predefined_ips(ip_df, ip_key):
         print("not str")
         sys.exit(0)
 
-    # quads seperated as integers so that logic can be applied to rm special ips
+    # quads separated as integers so that logic can be applied to rm special ips
     quads_df = (
         ip_df[ip_key]
         .str.split(".", expand=True)
@@ -342,6 +117,7 @@ def remove_predefined_ips(ip_df, ip_key):
         sys.exit()
     return quads_df, filtered_ips_df.index
 
+
 def filter_prior_predictions(
     results_path, lookback_days, static_key, todays_df=None, run_date=None
 ):  # , results_file_pattern):
@@ -363,7 +139,7 @@ def filter_prior_predictions(
         OUTPUTS
         prior_json --> (list) list of results.json to filter against
         time_range_results --> (pd.DataFrame()) set of prior predictions over lookback_days
-        unfound_results--> (list) list of results whose dates are not present in the results_path
+        null_results_list--> (list) list of results whose dates are not present in the results_path
         """
         today = run_date
         date_list = [
@@ -377,7 +153,7 @@ def filter_prior_predictions(
             # I want to make this better, more general so that anyone's results*.json can be used
             # prior_json.append(results_file_pattern)
         time_range_results_df = pd.DataFrame()
-        unfound_results = []
+        null_results_list = []
         for j in prior_json:
             try:
                 time_range_results = pd.read_json(results_path + j)
@@ -385,9 +161,11 @@ def filter_prior_predictions(
                     [time_range_results_df, time_range_results]
                 )
             except:
-                unfound_results.append(j)
-        time_range_results_df=time_range_results_df.loc[time_range_results_df.astype(str).drop_duplicates().index]
-        return prior_json, time_range_results_df, unfound_results
+                null_results_list.append(j)
+        time_range_results_df = time_range_results_df.loc[
+            time_range_results_df.astype(str).drop_duplicates().index
+        ]
+        return prior_json, time_range_results_df, null_results_list
 
     def filter_time_range_results(time_range_results_df, todays_df=None):
         """INPUTS
@@ -415,7 +193,8 @@ def filter_prior_predictions(
         else:
             print("No Prior Results")
         return todays_results
-    prior_json, time_range_results_df, unfound_results = get_results_lookback(
+
+    prior_json, time_range_results_df, null_results_list = get_results_lookback(
         results_path, lookback_days
     )
     todays_results = filter_time_range_results(time_range_results_df, todays_df)
@@ -423,7 +202,7 @@ def filter_prior_predictions(
 
 
 def port_type_counter(data, key, dicts, port_types):
-    """ Simple accounting of ratio of each port type. NOT WEIGHTED BY NUMBER OF PACKETS SENT.
+    """Simple accounting of ratio of each port type. NOT WEIGHTED BY NUMBER OF PACKETS SENT.
     INPUTS
     data --> df
     key --> df.key of port
@@ -440,13 +219,13 @@ def port_type_counter(data, key, dicts, port_types):
 
     def count_vals(
         rows,
-    ):# Gets the ratio of port classes for a given set of connections
-        if (" " in rows[key]):  # For single ports only
-            port_list=rows[key].split()
-        elif (type(rows[key]) == str):
-            port_list= [rows[key]]
+    ):  # Gets the ratio of port classes for a given set of connections
+        if " " in rows[key]:  # For single ports only
+            port_list = rows[key].split()
+        elif type(rows[key]) == str:
+            port_list = [rows[key]]
         else:
-            port_list= rows[key]
+            port_list = rows[key]
 
         count_list = np.zeros(len(port_types))
         for p in port_list:
@@ -459,7 +238,6 @@ def port_type_counter(data, key, dicts, port_types):
             rows[port_key] = count_list[i]
         rows.drop(key, inplace=True)
         return rows
-        
 
     data = data.apply(count_vals, axis=1)
     return data

@@ -1,6 +1,4 @@
 import numpy as np
-import json
-from datetime import datetime
 import pandas as pd
 import argparse
 
@@ -19,7 +17,7 @@ parser.add_argument(
 parser.add_argument(
     "-k",
     "--key",
-    help="The static key that ramins the same through out all trials",
+    help="The static key that remains the same through out all trials",
 )
 parser.add_argument(
     "-t",
@@ -32,25 +30,28 @@ args = parser.parse_args()
 site = args.site
 static_key = args.key
 model = args.model
-path = f"/opt/mlshare/output/HSA-partnersite/{site}/{model}/"   # Trial comp will only be used in dev.  Fix this path to the dev results dir
+path = f"/{site}/{model}/"  # Trial comp will only be used in dev.  Fix this path to the dev results dir
 num_trials = int(args.num_trials)
-today= args.today
+today = args.today
 
-def get_index_list(path: str = "", num_trials: int = 4, static_key: str = "first_uid", today = None) -> list:
+
+def get_index_list(
+    path: str = "", num_trials: int = 4, static_key: str = "first_uid", today=None
+) -> list:
     results_index = []
     for r in range(1, 1 + num_trials):
         index_list = []
-        
+
         try:
             file = f"{path}Results_{today}{r}.json"
             data = pd.read_json(file)
 
             for i in range(len(data)):
                 index_list.append(data.loc[i][static_key])
-        
+
         except Exception as e:
             print(f"Did NOT FIND: {file}\n{e}")
-            index_list.append('')
+            index_list.append("")
         results_index.append(index_list)
 
     return results_index
@@ -74,8 +75,8 @@ def similarity_matrix(results_index: list, num_trials: int = 4):  # df
                 similarity_matrix[j, i] = 100
 
     similarity_df = pd.DataFrame(similarity_matrix, index=keys, columns=keys)
-    similarity_df["mean_perc_sim"] = similarity_df.mean()
-    similarity_df["std_perc_sim"] = similarity_df.std()
+    similarity_df["mean_percent_similarity"] = similarity_df.mean()
+    similarity_df["std_percent_similarity"] = similarity_df.std()
 
     return similarity_df
 
@@ -84,6 +85,6 @@ results_index = get_index_list(path, num_trials, static_key, today)
 similarity_df = similarity_matrix(results_index, num_trials)
 print(similarity_df)
 print(
-    f"Mean(Mean(perc_sim): {np.round(similarity_df['mean_perc_sim'].mean(),2)}%, Mean(STD(perc_sim): {np.round(similarity_df['std_perc_sim'].mean(),2)}%"
+    f"Mean(Mean(percent_similarity): {np.round(similarity_df['mean_percent_similarity'].mean(),2)}%, Mean(STD(percent_similarity): {np.round(similarity_df['std_percent_similarity'].mean(),2)}%"
 )
 print(f"Mean predictions {np.round(np.mean([len(x) for x in results_index]),2)}")

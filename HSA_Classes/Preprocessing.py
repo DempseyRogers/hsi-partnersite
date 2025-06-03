@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-import re
-from time import time as t 
 from sklearn.feature_extraction.text import TfidfVectorizer as vecorizer
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -33,124 +31,137 @@ class HSA_preprocessing:
 
             def str_to_list(
                 row,
-                allow_dict,     
+                allow_dict,
             ):
                 for allow_type in allow_dict:
                     for key in allow_dict[allow_type].keys():
                         row[key] = row[key].split()
-                return(row)
+                return row
 
             def keep_if_one(row, allow_dict):
 
-                for df_keys in allow_dict['keep_if_one'].keys():
-                    cond=0
+                for df_keys in allow_dict["keep_if_one"].keys():
+                    cond = 0
 
-                    df_set=set(row[df_keys])
-                    dict_set=set(allow_dict['keep_if_one'][df_keys])
+                    df_set = set(row[df_keys])
+                    dict_set = set(allow_dict["keep_if_one"][df_keys])
                     if not df_set.isdisjoint(dict_set):
-                        cond+=1 
+                        cond += 1
 
                 if cond > 0:
-                    return(row)
+                    return row
 
                 else:
-                    row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
-                    return(row)
+                    row[df_keys] = (
+                        np.nan
+                    )  # cannot figure out how to drop here.. make nan and dropna
+                    return row
 
             def drop_if_one(row, allow_dict):
-                cond=0
+                cond = 0
 
-                for df_keys in allow_dict['drop_if_one'].keys():
-                    df_set=set(row[df_keys])
-                    dict_set=set(allow_dict['drop_if_one'][df_keys])
+                for df_keys in allow_dict["drop_if_one"].keys():
+                    df_set = set(row[df_keys])
+                    dict_set = set(allow_dict["drop_if_one"][df_keys])
 
                     if df_set.isdisjoint(dict_set):
-                        cond+=1 
+                        cond += 1
 
                 if cond > 0:
-                    return(row)
+                    return row
 
                 else:
-                    row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
-                    return(row)
+                    row[df_keys] = (
+                        np.nan
+                    )  # cannot figure out how to drop here.. make nan and dropna
+                    return row
 
             def drop_if_all(row, allow_dict):
-                cond=0
+                cond = 0
 
-                for df_keys in allow_dict['drop_if_all'].keys():
-                    df_set=set(row[df_keys])
-                    dict_set=set(allow_dict['drop_if_all'][df_keys])
+                for df_keys in allow_dict["drop_if_all"].keys():
+                    df_set = set(row[df_keys])
+                    dict_set = set(allow_dict["drop_if_all"][df_keys])
 
                     if df_set.issubset(dict_set):
-                        cond+=1 
+                        cond += 1
 
-                if cond == len(allow_dict['drop_if_all'].keys()):
-                    row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
-                    return(row)
+                if cond == len(allow_dict["drop_if_all"].keys()):
+                    row[df_keys] = (
+                        np.nan
+                    )  # cannot figure out how to drop here.. make nan and dropna
+                    return row
 
                 else:
-                    return(row)   
+                    return row
 
             def keep_if_all(row, allow_dict):
-                cond=0
+                cond = 0
 
-                for df_keys in allow_dict['keep_if_all'].keys():
-                    df_set=set(row[df_keys])
-                    dict_set=set(allow_dict['keep_if_all'][df_keys])
+                for df_keys in allow_dict["keep_if_all"].keys():
+                    df_set = set(row[df_keys])
+                    dict_set = set(allow_dict["keep_if_all"][df_keys])
 
                     if df_set.issubset(dict_set):
-                        cond+=1 
+                        cond += 1
 
-                if cond == len(allow_dict['keep_if_all'].keys()):
-                    return(row)
+                if cond == len(allow_dict["keep_if_all"].keys()):
+                    return row
 
                 else:
-                    row[df_keys]=np.nan # cannot figure out how to drop here.. make nan and dropna
-                    return(row)
+                    row[df_keys] = (
+                        np.nan
+                    )  # cannot figure out how to drop here.. make nan and dropna
+                    return row
 
-            args=(allow_dict,)
-            df=df.apply(str_to_list, 
-                        args=args, 
-                        axis=1,
-                        )
+            args = (allow_dict,)
+            df = df.apply(
+                str_to_list,
+                args=args,
+                axis=1,
+            )
 
-            if len(self.allow_dict['keep_if_one']):
-                df=df.apply(keep_if_one, 
-                        args=args,
-                        axis=1,
-                        )
+            if len(self.allow_dict["keep_if_one"]):
+                df = df.apply(
+                    keep_if_one,
+                    args=args,
+                    axis=1,
+                )
 
-            if len(self.allow_dict['drop_if_one']):
-                df=df.apply(drop_if_one, 
-                        args=args,
-                        axis=1,
-                        )
+            if len(self.allow_dict["drop_if_one"]):
+                df = df.apply(
+                    drop_if_one,
+                    args=args,
+                    axis=1,
+                )
 
-            if len(self.allow_dict['drop_if_all']):
-                df=df.apply(drop_if_all, 
-                        args=args,
-                        axis=1,
-                        )
+            if len(self.allow_dict["drop_if_all"]):
+                df = df.apply(
+                    drop_if_all,
+                    args=args,
+                    axis=1,
+                )
 
-            if len(self.allow_dict['keep_if_all']):
-                df=df.apply(keep_if_all, 
-                        args=args,
-                        axis=1,
-                        )
+            if len(self.allow_dict["keep_if_all"]):
+                df = df.apply(
+                    keep_if_all,
+                    args=args,
+                    axis=1,
+                )
 
             df.dropna(inplace=True, axis=0)
-            return(df)
+            return df
 
         def multi_connection_data_encoder(
-            key : str,
-            df : pd.DataFrame,
-            max_spawn_dummies : int,
-        ): 
-            """ Takes a DF with space separated data. The data point with multiple connections are encoded to columns of the data frame. The new encoded columns are populated with the percent the value represents in the event.
-            
+            key: str,
+            df: pd.DataFrame,
+            max_spawn_dummies: int,
+        ):
+            """Takes a DF with space separated data. The data point with multiple connections are encoded to columns of the data frame. The new encoded columns are populated with the percent the value represents in the event.
+
             - key : key of the multivalued data
             - df : DF containing data
-            - max_spawn_dummies : limit to the number of columns encoder can spawn 
+            - max_spawn_dummies : limit to the number of columns encoder can spawn
             """
 
             def str_to_list_mc(
@@ -162,7 +173,7 @@ class HSA_preprocessing:
                     row[f"{key}_list"] = row[key]
                 elif type(row[key]) == str:
                     row[f"{key}_list"] = row[key].split()
-                return(row)
+                return row
 
             def list_to_set(
                 row,
@@ -179,7 +190,7 @@ class HSA_preprocessing:
                 except Exception as e:
                     self.logger.critical(f"list_to_set: {e}")
                     sys.exit()
-                return(row_set)
+                return row_set
 
             def set_to_encoded_df_cols(
                 row,
@@ -190,8 +201,8 @@ class HSA_preprocessing:
                     for spawn_key in row[f"{key}_list"]:
                         row[f"{spawn_key}_{key}"] += 1 / (len(row[f"{key}_list"]))
                 else:
-                    row[f'{row[f"{key}_list"]}_{key}'] = 1 
-                return(row)
+                    row[f'{row[f"{key}_list"]}_{key}'] = 1
+                return row
 
             def clean_up(
                 df,
@@ -199,7 +210,7 @@ class HSA_preprocessing:
             ):
                 df.drop(key, inplace=True, axis=1)
                 df.drop(f"{key}_list", inplace=True, axis=1)
-                return(df)
+                return df
 
             row_set = []
             args = (key, row_set)
@@ -209,16 +220,16 @@ class HSA_preprocessing:
                 axis=1,
             )
 
-            list_of_lists=list(df[f"{key}_list"])
-            row_set=set()
+            list_of_lists = list(df[f"{key}_list"])
+            row_set = set()
             for sublist in list_of_lists:
-                row=[]
+                row = []
                 if type(sublist) == list:
                     for element in sublist:
                         row.append(element)
                 else:
                     row.append(sublist)
-                row_set=row_set.union(set(row))
+                row_set = row_set.union(set(row))
 
             if len(row_set) < max_spawn_dummies:
                 for spawn_key in row_set:
@@ -241,8 +252,8 @@ class HSA_preprocessing:
             df = clean_up(
                 df,
                 key,
-            )            
-            return(df)
+            )
+            return df
 
         def df_dtype_gen(
             df: pd.DataFrame,
@@ -250,7 +261,9 @@ class HSA_preprocessing:
         ):
             """Casts columns of SPLUNK data to predefined datatype, else drops drill-down information from model consideration."""
             # cast data into specified types
-            df.drop(set(df.keys()).difference(set(type_map.keys())), axis=1, inplace=True)
+            df.drop(
+                set(df.keys()).difference(set(type_map.keys())), axis=1, inplace=True
+            )
 
             if self.allow_dict != None:
                 df = allow_lister(df, self.allow_dict)
@@ -261,10 +274,10 @@ class HSA_preprocessing:
                 df[k] = df[k].astype(type_map[k])
             for k in [key for key in type_map if type_map[key] == "multi"]:
                 df = multi_connection_data_encoder(
-                        k,
-                        df,
-                        self.max_spawn_dummies_multi,
-                    )
+                    k,
+                    df,
+                    self.max_spawn_dummies_multi,
+                )
             return df
 
         if len(raw_path) > 0:
@@ -349,7 +362,7 @@ class HSA_preprocessing:
 
     #         pass
     #         ip_list = list(ip_df[ip_keys[0]].values)
-    #         ip_list += list(ip_df[ip_keys[1]].values)  # use all quads as vocb items
+    #         ip_list += list(ip_df[ip_keys[1]].values)  # use all quads as vocabulary items
 
     #         ip_df = pd.DataFrame(ip_list, columns=[f"{ip_type}_ip"])
     #         ip_df["sentence"] = ip_df.apply(generate_sentences, axis=1)
@@ -371,7 +384,7 @@ class HSA_preprocessing:
     #         src_quad = pd.DataFrame()
     #         dest_quad[["dest_q0", "dest_q1", "dest_q2", "dest_q3"]] = quad_df.loc[
     #             : len(quad_df) // 2 - 1
-    #         ]  # unravel total voacb list back to src and dest ips
+    #         ]  # unravel total vocabulary list back to src and dest ips
     #         src_quad[["src_q0", "src_q1", "src_q2", "src_q3"]] = quad_df.loc[
     #             len(quad_df) // 2 :
     #         ]
@@ -417,8 +430,8 @@ class HSA_preprocessing:
         df = pd.concat([df, dummies], axis=1)
 
         time = []
-        if ("duration" in df.keys()):  
-            if (df["duration"].dtype != float):
+        if "duration" in df.keys():
+            if df["duration"].dtype != float:
                 for t in df["duration"]:
                     time.append(t.total_seconds())
                 df.drop("duration", axis=1, inplace=True)
@@ -427,8 +440,8 @@ class HSA_preprocessing:
         df.columns = df.columns.astype(str)
 
         for k in df.keys():
-            if df[k].nunique() ==1:
-                df.drop(k, inplace = True, axis=1)
+            if df[k].nunique() == 1:
+                df.drop(k, inplace=True, axis=1)
                 self.logger.info(f"Key: {k} Dropped due to STD == 0")
         scaled = self.scaler.fit_transform(df)
 
@@ -437,8 +450,8 @@ class HSA_preprocessing:
         self.logger.trace("Preprocessing Encoding Complete. ")
         for key in self.preprocessed_df.keys():
             if self.df[key].isnull().any():
-                if len(self.preprocessed_df[key].unique()) ==1:
-                    self.preprocessed_df.drop(key, axis = 1, inplace = True)
+                if len(self.preprocessed_df[key].unique()) == 1:
+                    self.preprocessed_df.drop(key, axis=1, inplace=True)
         self.preprocessed_df.dropna(inplace=True)
 
         return max_spawn

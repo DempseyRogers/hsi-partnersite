@@ -1,6 +1,7 @@
 import torch as t
 from torch.utils.data import Dataset
 
+
 class HSA_dataset(Dataset):
 
     def __init__(self, preprocessed_np, logger):

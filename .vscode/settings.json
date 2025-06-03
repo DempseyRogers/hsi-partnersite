@@ -6,6 +6,8 @@
         "Hyperspectral",
         "lookback",
         "multifilter",
-        "TFIDF"
+        "Multifiltered",
+        "TFIDF",
+        "vectorizer"
     ]
 }

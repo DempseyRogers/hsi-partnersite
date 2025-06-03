@@ -277,7 +277,8 @@ class HSA_model:
                 )
             return _anomaly_score
 
-        cmp_opt_loop = t.compile(mac_opt_loop, fullgraph=False)
+        # cmp_opt_loop = t.compile(mac_opt_loop, fullgraph=False)
+        cmp_opt_loop = mac_opt_loop
         # cmp_opt_loop = mac_opt_loop #5.8s
 
         # cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
@@ -313,21 +314,21 @@ class HSA_model:
         self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] = np.round(
             self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] / m_std, 1
         )
-        self.x_ticks = np.where(self.bin_score > 0)[
+        self.anomalous_location = np.where(self.bin_score > 0)[
             0
         ]  # index in current preprocessed_np
 
         if multifilter_flag:
-            self.anomaly_index = user_location[self.x_ticks]
-            self.x_label = self.anomaly_index
+            self.anomaly_index_raw = user_location[self.anomalous_location]
+            self.x_label = self.anomaly_index_raw
         else:
-            self.anomaly_index = (
-                self.x_ticks + self.start_idx
+            self.anomaly_index_raw = (
+                self.anomalous_location + self.start_idx
             )  # index in raw data not pcap
-            self.x_label = self.anomaly_index
+            self.x_label = self.anomaly_index_raw
 
-        bin_df = df.iloc[self.anomaly_index]
-        bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.x_ticks])
+        bin_df = df.iloc[self.anomaly_index_raw]
+        bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.anomalous_location])
         self.bin_df = bin_df
         self.logger.debug("HSA model predictions complete.")
 
@@ -338,7 +339,7 @@ class HSA_model:
         Returns a data frame consisting of 10% anomalies and 90% background from
         preprocessed_np with start_idx!=0"""
 
-        predicted_anomaly_idx = (np.array(self.x_ticks)).astype(
+        predicted_anomaly_idx = (np.array(self.anomalous_location)).astype(
             int
         )  # Grab the pred anomaly from the sub preprocessed_np
 
@@ -397,9 +398,17 @@ class HSA_model:
             total_anomaly_index, padding_index
         )  # concat so that anomaly~%10
 
+
         self.logger.trace("Global Multifilter Complete.")
         return mix_index, mix_data, total_anomaly_index
-
+    
+    def apf_df_generation(self, total_anomaly_index):
+        anomaly_prediction_frequency_df = pd.DataFrame()
+        anomaly_prediction_frequency_df["User DF Index"] = total_anomaly_index
+        anomaly_prediction_frequency_df.set_index("User DF Index")
+        anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(len(total_anomaly_index))
+        return anomaly_prediction_frequency_df
+    
     def uni_shuffle_multifilter_df(
         self,
         mix_index: np.ndarray,
@@ -418,7 +427,7 @@ class HSA_model:
         self.all_data = mix_data[self.shuffler]  # same shuffle for data
 
         self.current_anomaly_index = np.where(
-            np.in1d(self.all_index_user, predicted_anomaly)
+            np.isin(self.all_index_user, predicted_anomaly)
         )
         self.all_index_mf = self.all_index_user - self.start_idx
         self.logger.trace("Multifiltered data has been shuffled.")

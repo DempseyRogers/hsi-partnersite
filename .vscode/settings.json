@@ -4,6 +4,7 @@
         "generalizability",
         "hyperparameters",
         "Hyperspectral",
+        "imread",
         "lookback",
         "multifilter",
         "Multifiltered",

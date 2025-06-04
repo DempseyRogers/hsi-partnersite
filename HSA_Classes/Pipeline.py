@@ -191,11 +191,11 @@ class HSA_pipeline:
                     data_multifilter_df=data.squeeze(0)
                 ).vertex_weights_distances().weight_generation().graph_evolution()
                 # Training steps
-                model.torch_optimize_POF(iterations=self.iterations)
+                model.train(iterations=self.iterations)
                 # Prediction step
-                model.model_predictions(df)
+                model.infer(df)
                 # Store anomalous predictions throughout all batches for use in multi filter
-                total_anomaly_index = np.append(total_anomaly_index, model.x_label)
+                total_anomaly_index = np.append(total_anomaly_index, model.anomaly_index_raw)
                 i += 1
         except:
             self.logger.critical(f"Initial pass FAILED. {sys.exc_info()[:]}")
@@ -265,14 +265,14 @@ class HSA_pipeline:
                         ).vertex_weights_distances().weight_generation().graph_evolution()
 
                         # # Train MF_MODEL
-                        MF_model.torch_optimize_POF(iterations=self.iterations)
-                        MF_model.model_predictions(
+                        MF_model.train(iterations=self.iterations)
+                        MF_model.infer(
                             df, multifilter_flag=1, user_location=user_location
                         )
                         j += 1
                     anomaly_prediction_frequency_df.loc[
                         anomaly_prediction_frequency_df["User DF Index"].isin(
-                            MF_model.x_label
+                            MF_model.anomaly_index_raw
                         ),
                         "Anomaly Bin Count",
                     ] += 1
@@ -314,7 +314,7 @@ class HSA_pipeline:
                 self.anomaly_std_tolerance,
                 MF_model.bin_score,
                 MF_model.x_ticks,
-                MF_model.x_label,
+                MF_model.anomaly_index_raw,
             )
             self.logger.trace("Bin_predictions Heatmap Compete.")
 

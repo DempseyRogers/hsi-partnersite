@@ -209,14 +209,13 @@ class HSA_model:
         phi = obj + c + t.sum(pen)
         return phi.to(device)
 
-    def torch_optimize_POF(
+    def train(
         self,
         torch_POF=torch_POF,
         iterations: float = 1e4,
     ):
         """Using the evolved edge weight information and initialized anomaly scores minimize the penalized objective fxn. Optimize for each power of the evolution using the previous best anomaly score."""
-
-        lr = self.lr
+        self.iterations = iterations
         anomaly_score_old = t.from_numpy(self.anomaly_score_old).to(self.device)
         vert_weight = self.vertWeights
         pr = t.tensor(self.penalty_ratio).requires_grad_(True).to(self.device)
@@ -239,7 +238,7 @@ class HSA_model:
                 power = t.tensor(i + 1).requires_grad_(False).to(self.device)
                 params = [m]
 
-                optimizer = t.optim.Adam(params, lr=t.tensor(lr), fused=True)
+                optimizer = t.optim.Adam(params, lr=t.tensor(self.lr), fused=True)
                 for j in range(iterations):
                     optimizer.zero_grad()
 
@@ -295,14 +294,14 @@ class HSA_model:
         self.m = anomaly_score.cpu().detach().numpy()
         self.logger.debug("HSA Torch optimization complete.")
 
-    def model_predictions(
-        self, df: pd.DataFrame, multifilter_flag: int = 0, user_location: list = []
+    def infer(
+        self, df: pd.DataFrame, multifilter_flag: int = 0, all_index_user: list = []
     ):
         """Measures the distance from the mean in std for each minimized anomaly score.
         Returns the number of std from mean if greater than the std_anomaly_thresh
         Returns the raw data for anomalous pixels in the bin_df
         Returns the x_ticks for heat-maps (location in sub preprocessed_np)
-        Returns the x_label for heat-maps (location in total_preprocessed_np and raw data)
+        Returns the anomaly_index_raw for heat-maps (location in total_preprocessed_np and raw data)
         """
 
         m_mean = np.mean(self.m)
@@ -319,18 +318,17 @@ class HSA_model:
         ]  # index in current preprocessed_np
 
         if multifilter_flag:
-            self.anomaly_index_raw = user_location[self.anomalous_location]
-            self.x_label = self.anomaly_index_raw
+            self.anomaly_index_raw = all_index_user[self.anomalous_location]
         else:
             self.anomaly_index_raw = (
                 self.anomalous_location + self.start_idx
-            )  # index in raw data not pcap
-            self.x_label = self.anomaly_index_raw
+            )  
 
         bin_df = df.iloc[self.anomaly_index_raw]
         bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.anomalous_location])
         self.bin_df = bin_df
         self.logger.debug("HSA model predictions complete.")
+        self.preprocessed_df = df
 
     def local_collect_multifilter_df(
         self,
@@ -403,11 +401,12 @@ class HSA_model:
         return mix_index, mix_data, total_anomaly_index
     
     def apf_df_generation(self, total_anomaly_index):
-        anomaly_prediction_frequency_df = pd.DataFrame()
-        anomaly_prediction_frequency_df["User DF Index"] = total_anomaly_index
-        anomaly_prediction_frequency_df.set_index("User DF Index")
-        anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(len(total_anomaly_index))
-        return anomaly_prediction_frequency_df
+        self.anomaly_prediction_frequency_df = pd.DataFrame()
+        self.anomaly_prediction_frequency_df["User DF Index"] = total_anomaly_index
+        self.anomaly_prediction_frequency_df.set_index("User DF Index")
+        self.anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(len(total_anomaly_index))
+        self.total_anomaly_index = total_anomaly_index
+        return self.anomaly_prediction_frequency_df
     
     def uni_shuffle_multifilter_df(
         self,

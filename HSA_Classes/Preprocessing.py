@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer as vecorizer
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from loguru import logger as loguru_logger
@@ -291,120 +291,6 @@ class HSA_preprocessing:
         self.decomposer = decomposer
         self.scaler = scaler
         self.logger.debug("Scaler and Decomposer passed to df_dtype gen.")
-
-    # def ip_tfidf(
-    #     self,
-    #     tfidf_ip_count: int,
-    #     ip_keys: list,
-    #     ip_type: str = "",
-    # ):
-    #     """Takes ip strings and preforms TFIDF on their individual quads. To generate new vocab words for octets of numbers being repeated in different quads, each quad is shifted by a factor of 256. NOTE: 0-10  were protected vocab, so each octet is also shifted by 10."""
-
-    #     # Encode all ips with term frequency inverse doc freq
-    #     @self.logger.catch(level="CRITICAL")
-    #     def generate_sentences(row):
-    #         offset_arr = [
-    #             (i * 256) + 10 for i in range(4)
-    #         ]  # separate out quads so 123.123.123 has different vals for each quad
-
-    #         vals = row[f"{ip_type}_ip"].split(".")
-    #         vals = [int(j) + offset_arr[i] for i, j in enumerate(vals)]
-    #         return " ".join([str(i) for i in vals])
-
-    #     @self.logger.catch(level="CRITICAL")
-    #     def unprotect_1(
-    #         rows,
-    #     ):  # vectorizer has the word "1" as a protected token that is not documented, this returns no score if used
-    #         row = rows["sentence"]
-    #         rex = "(^1 )"
-    #         if re.match(rex, row):
-    #             return re.sub(
-    #                 rex, "01 ", row
-    #             )  # give ip 1.xxx.xxx the value of 01.xxx.xxx to avoid protected vals
-    #         else:
-    #             return row
-
-    #     @self.logger.catch(level="CRITICAL")
-    #     def extract(
-    #         results: list,
-    #         n: int,
-    #     ):  # separate words to match words' scores
-    #         return [item[n] for item in results]
-
-    #     for k in ip_keys:
-    #         self.preprocessed_df = self.preprocessed_df[self.preprocessed_df[k].isna() == False]
-
-    #     if tfidf_ip_count == 1:
-    #         ip_df = self.preprocessed_df
-    #         ip_list = list(ip_df[ip_keys[0]].values)
-
-    #         ip_df = pd.DataFrame(ip_list, columns=[f"{ip_type}_ip"])
-    #         ip_df["sentence"] = ip_df.apply(generate_sentences, axis=1)
-
-    #         vocab = {f"{i}": i for i in range(1034)}
-
-    #         v = vecorizer(vocabulary=vocab)
-    #         v.fit([ip_df["sentence"][0]])
-    #         outs = v.transform(ip_df["sentence"]).todense().tolist()
-    #         results = []
-    #         for o in outs:
-    #             results.append([i for i in o if i > 0])
-
-    #         quad_df = pd.DataFrame()
-    #         for i in range(4):
-    #             quad_df[f"quad_{i}"] = extract(results, i)
-    #         self.preprocessed_df.drop(ip_keys[0], inplace=True, axis=1)
-    #         self.preprocessed_df = pd.concat([self.preprocessed_df, quad_df], axis=1)
-    #         self.logger.debug("Only 1 IP in use, TFIDF Complete.")
-
-    #     if tfidf_ip_count == 2:
-    #         ip_df = self.preprocessed_df
-
-    #         pass
-    #         ip_list = list(ip_df[ip_keys[0]].values)
-    #         ip_list += list(ip_df[ip_keys[1]].values)  # use all quads as vocabulary items
-
-    #         ip_df = pd.DataFrame(ip_list, columns=[f"{ip_type}_ip"])
-    #         ip_df["sentence"] = ip_df.apply(generate_sentences, axis=1)
-
-    #         vocab = {f"{i}": i for i in range(1034)}
-
-    #         v = vecorizer(vocabulary=vocab)
-    #         v.fit(ip_df["sentence"])
-    #         outs = v.transform(ip_df["sentence"]).todense().tolist()
-    #         results = []
-    #         for o in outs:
-    #             results.append([i for i in o if i > 0])
-
-    #         quad_df = pd.DataFrame()
-    #         for i in range(4):
-    #             quad_df[f"quad_{i}"] = extract(results, i)
-
-    #         dest_quad = pd.DataFrame()
-    #         src_quad = pd.DataFrame()
-    #         dest_quad[["dest_q0", "dest_q1", "dest_q2", "dest_q3"]] = quad_df.loc[
-    #             : len(quad_df) // 2 - 1
-    #         ]  # unravel total vocabulary list back to src and dest ips
-    #         src_quad[["src_q0", "src_q1", "src_q2", "src_q3"]] = quad_df.loc[
-    #             len(quad_df) // 2 :
-    #         ]
-
-    #         src_quad.reset_index(inplace=True)
-    #         src_quad.drop("index", inplace=True, axis=1)
-    #         self.dest_quad=dest_quad
-    #         self.src_quad=src_quad
-
-    #         self.preprocessed_df.drop(ip_keys, inplace=True, axis=1)
-    #         self.preprocessed_df.reset_index(inplace=True)
-    #         tfidf_keys=list(self.preprocessed_df.keys().values)+list(self.dest_quad.keys().values)+list(self.src_quad.keys().values)
-    #         self.preprocessed_df = pd.concat(
-    #             [self.preprocessed_df, dest_quad, src_quad], axis=1, ignore_index=True
-    #         )
-
-    #         self.preprocessed_df.columns=tfidf_keys
-    #         self.preprocessed_df.drop("index", inplace=True, axis=1)
-    #         self.logger.debug("There are 2 IPs in use, TFIDF Complete.")
-    #     return self
 
     def read_raw_get_dummies(
         self,

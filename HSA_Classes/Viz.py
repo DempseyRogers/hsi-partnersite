@@ -32,7 +32,7 @@ class HSA_viz:
         self.unique_id_str = unique_id_str
         self.logger = logger
 
-    def heatmap_WeightsMatrix(
+    def heatmap_weights_matrix(
         self,
         title_list: list,
         data_list: list,
@@ -52,7 +52,7 @@ class HSA_viz:
                     f"{self.plots_directory}/{self.unique_id_str}_model_weights.png"
                 )
             self.logger.debug(
-                f"heatmap_WeightsMatrix was generated. The save_fig={self.save_fig}."
+                f"heatmap_weights_matrix was generated. The save_fig={self.save_fig}."
             )
 
     def heatmap_bin_predictions(

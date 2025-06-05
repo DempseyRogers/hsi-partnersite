@@ -2,10 +2,10 @@ from copy import deepcopy
 import sys
 import os
 
-import HSA_Classes.Preprocessing as hsa_preprocessing
-import HSA_Classes.DataSet as hsa_dataset
-import HSA_Classes.Model as hsa_model
-import HSA_Classes.Viz as hsa_viz
+import Preprocessing as hsa_preprocessing
+import DataSet as hsa_dataset
+import Model as hsa_model
+import Viz as hsa_viz
 from sklearn.decomposition import PCA as PCA
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
 from loguru import logger as loguru_logger

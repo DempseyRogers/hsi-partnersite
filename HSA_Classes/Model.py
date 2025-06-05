@@ -117,7 +117,7 @@ class HSA_model:
         sum_sqr = t.sum(sq_diff, -1)
 
         self.distances = t.sqrt(sum_sqr).requires_grad_(False)
-        self.vertWeights = (
+        self.vertex_weights = (
             t.sum(t.exp(-t.square(t.div(self.distances, self.cutoff_distance))), 1)
             .unsqueeze(-1)
             .requires_grad_(False)
@@ -146,7 +146,7 @@ class HSA_model:
 
         d_vec = t.pow(t.sum(self.edgeWeights, 0), (-1 / 2))
         d_matrix = t.diag(d_vec)
-        gam_matrix = t.diag(t.reshape(self.vertWeights, (self.vertWeights.shape[0],)))
+        gam_matrix = t.diag(t.reshape(self.vertex_weights, (self.vertex_weights.shape[0],)))
 
         temp = t.matmul(d_matrix, self.edgeWeights)
         sim_matrix = t.matmul(temp, d_matrix)
@@ -181,7 +181,7 @@ class HSA_model:
     def torch_POF(
         m: t.Tensor,
         affinity_m: t.Tensor,
-        vertWeights: t.Tensor,
+        vertex_weights: t.Tensor,
         d_matrix: t.Tensor,
         power: int,
         penalty_ratio: float,
@@ -196,7 +196,7 @@ class HSA_model:
         obj = (1 / 2) * t.matmul(
             t.matmul(t.transpose(m.unsqueeze(1), 0, 1), affinity_m), m.unsqueeze(1)
         )
-        c = t.matmul(t.matmul(t.transpose(vertWeights, 0, 1), d_matrix), m.unsqueeze(1))
+        c = t.matmul(t.matmul(t.transpose(vertex_weights, 0, 1), d_matrix), m.unsqueeze(1))
         neg_constraint = t.lt(m, 0)
         ones = t.ones(m.size()).to(device)
         ge1_constraint = t.gt(t.subtract(m, ones), 0)
@@ -217,7 +217,7 @@ class HSA_model:
         """Using the evolved edge weight information and initialized anomaly scores minimize the penalized objective fxn. Optimize for each power of the evolution using the previous best anomaly score."""
         self.iterations = iterations
         anomaly_score_old = t.from_numpy(self.anomaly_score_old).to(self.device)
-        vert_weight = self.vertWeights
+        vert_weight = self.vertex_weights
         pr = t.tensor(self.penalty_ratio).requires_grad_(True).to(self.device)
         anomaly_score = t.from_numpy(self.m).to(self.device)
 
@@ -303,19 +303,23 @@ class HSA_model:
         Returns the x_ticks for heat-maps (location in sub preprocessed_np)
         Returns the anomaly_index_raw for heat-maps (location in total_preprocessed_np and raw data)
         """
-
+        print("Mean")
         m_mean = np.mean(self.m)
         m_std = np.std(self.m)
 
+        print("bin score")
         self.bin_score = abs(self.m - m_mean)
 
         self.bin_score[np.where(self.bin_score / m_std < self.std_toll)] = 0
         self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] = np.round(
             self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] / m_std, 1
         )
+        print("Anomalous Location")
+        
         self.anomalous_location = np.where(self.bin_score > 0)[
             0
         ]  # index in current preprocessed_np
+        print("multifilter flag")
 
         if multifilter_flag:
             self.anomaly_index_raw = all_index_user[self.anomalous_location]
@@ -323,6 +327,8 @@ class HSA_model:
             self.anomaly_index_raw = (
                 self.anomalous_location + self.start_idx
             )  
+        print("Bin DF")
+        print(f"len df: {df.shape}, max {self.anomaly_index_raw} ")
 
         bin_df = df.iloc[self.anomaly_index_raw]
         bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.anomalous_location])

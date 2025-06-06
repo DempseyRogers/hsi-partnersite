@@ -303,23 +303,23 @@ class HSA_model:
         Returns the x_ticks for heat-maps (location in sub preprocessed_np)
         Returns the anomaly_index_raw for heat-maps (location in total_preprocessed_np and raw data)
         """
-        print("Mean")
+        # print("Mean")
         m_mean = np.mean(self.m)
         m_std = np.std(self.m)
 
-        print("bin score")
+        # print("bin score")
         self.bin_score = abs(self.m - m_mean)
 
         self.bin_score[np.where(self.bin_score / m_std < self.std_toll)] = 0
         self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] = np.round(
             self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] / m_std, 1
         )
-        print("Anomalous Location")
+        # print("Anomalous Location")
         
         self.anomalous_location = np.where(self.bin_score > 0)[
             0
         ]  # index in current preprocessed_np
-        print("multifilter flag")
+        # print("multifilter flag")
 
         if multifilter_flag:
             self.anomaly_index_raw = all_index_user[self.anomalous_location]
@@ -327,8 +327,8 @@ class HSA_model:
             self.anomaly_index_raw = (
                 self.anomalous_location + self.start_idx
             )  
-        print("Bin DF")
-        print(f"len df: {df.shape}, max {self.anomaly_index_raw} ")
+        # print("Bin DF")
+        # print(f"len df: {df.shape}, max {self.anomaly_index_raw} ")
 
         bin_df = df.iloc[self.anomaly_index_raw]
         bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.anomalous_location])

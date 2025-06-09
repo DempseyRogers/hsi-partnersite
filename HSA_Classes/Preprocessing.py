@@ -19,8 +19,9 @@ class HSA_preprocessing:
         type_map: dict = {},
         max_spawn_dummies: int = 500,
         max_spawn_dummies_multi=50,  # This is being set to reduce scanners in model pred dtye == 'multi'
-        allow_dict: dict = {},
+        allow_dict: dict = None,
     ):
+        self.type_map = type_map
         self.drop_keys = drop_keys
         self.logger = logger
         self.max_spawn_dummies = max_spawn_dummies
@@ -257,34 +258,31 @@ class HSA_preprocessing:
 
         def df_dtype_gen(
             df: pd.DataFrame,
-            type_map: dict = {},
         ):
             """Casts columns of SPLUNK data to predefined datatype, else drops drill-down information from model consideration."""
-            # cast data into specified types
-            df.drop(
-                set(df.keys()).difference(set(type_map.keys())), axis=1, inplace=True
-            )
-
-            if self.allow_dict != None:
+            if self.allow_dict:
                 df = allow_lister(df, self.allow_dict)
                 df.dropna(inplace=True)
-                df.to_pickle("~/allow.pkl")
 
-            for k in [key for key in df if type_map[key] != "multi"]:
-                df[k] = df[k].astype(type_map[k])
-            for k in [key for key in type_map if type_map[key] == "multi"]:
-                df = multi_connection_data_encoder(
-                    k,
-                    df,
-                    self.max_spawn_dummies_multi,
+            if self.type_map:
+                df.drop(
+                    set(df.keys()).difference(set(self.type_map.keys())), axis=1, inplace=True
                 )
+                for k in [key for key in df if self.type_map[key] != "multi"]:
+                    df[k] = df[k].astype(self.type_map[k])
+                for k in [key for key in self.type_map if self.type_map[key] == "multi"]:
+                    df = multi_connection_data_encoder(
+                        k,
+                        df,
+                        self.max_spawn_dummies_multi,
+                    )
             return df
 
         if len(raw_path) > 0:
             self.raw_path = raw_path
-            df = df_dtype_gen(pd.read_pickle(self.raw_path), type_map)
+            df = df_dtype_gen(pd.read_pickle(self.raw_path))
         else:
-            df = df_dtype_gen(df, type_map)
+            df = df_dtype_gen(df)
 
         self.preprocessed_df = df
 
@@ -310,10 +308,10 @@ class HSA_preprocessing:
                     max_spawn.append(k)
 
         d = df[df.select_dtypes(include=["category", "object"]).columns]
-        d_keys = d.keys()
-        dummies = pd.get_dummies(d)
-        df.drop(d_keys, axis=1, inplace=True)
-        df = pd.concat([df, dummies], axis=1)
+        if len(d.keys()):
+            dummies = pd.get_dummies(d) 
+            df.drop(d_keys, axis=1, inplace=True)
+            df = pd.concat([df, dummies], axis=1)
 
         time = []
         if "duration" in df.keys():
@@ -335,7 +333,7 @@ class HSA_preprocessing:
         self.preprocessed_df = df
         self.logger.trace("Preprocessing Encoding Complete. ")
         for key in self.preprocessed_df.keys():
-            if self.df[key].isnull().any():
+            if df[key].isnull().any():
                 if len(self.preprocessed_df[key].unique()) == 1:
                     self.preprocessed_df.drop(key, axis=1, inplace=True)
         self.preprocessed_df.dropna(inplace=True)
@@ -346,12 +344,14 @@ class HSA_preprocessing:
         self,
         percent_variance_explained: float = 0.95,
         min_additional_percent_variance_exp: float = 0.01,
+        df: pd.DataFrame = None
     ):
         """Pass the decomposer of choice, pca, and both the percent_variance to explain,
         and the minimum percent of the variance that the addition of another component
         must achieve. Loops will break when percent_variance_explained is achieved, or when
         min_additional_percent_variance_exp is not achieved."""
-        # pca = self.decomposer.fit(self.df)
+        print(df)
+        pca = self.decomposer.fit(df)
         diff = []
         sum_exp_var = 0
         per_exp = percent_variance_explained
@@ -367,7 +367,7 @@ class HSA_preprocessing:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_additional_percent_variance_exp} explanation of variance"
                 break
         self.decomposer.set_params(n_components=n_components)
-        self.np = self.decomposer.fit_transform(self.df)
+        self.np = self.decomposer.fit_transform(df)
         self.n_components = n_components
         self.logger.debug(
             "Number of components selected by percent variance explained completed."

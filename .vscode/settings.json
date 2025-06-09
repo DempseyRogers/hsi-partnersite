@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
         "datatypes",
+        "deepcopy",
         "generalizability",
+        "getitem",
         "hyperparameters",
         "Hyperspectral",
         "imread",

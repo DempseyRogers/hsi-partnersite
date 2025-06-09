@@ -1,7 +1,7 @@
 from copy import deepcopy
 import sys
 import os
-
+import datetime 
 import Preprocessing as hsa_preprocessing
 import DataSet as hsa_dataset
 import Model as hsa_model
@@ -76,7 +76,7 @@ class HSA_pipeline:
         self.num_workers = num_workers
 
         dir_list = [
-            self.base__directory,
+            self.base_directory,
             self.plot_directory,
             self.log_directory,
             self.results_directory,
@@ -89,50 +89,56 @@ class HSA_pipeline:
             self.logger.critical(f"An output directory is missing.\n {e}")
             sys.exit()
         self.current_logger = self.logger.add(
-            sink=f"{self.log_directory}/HSA_log_{self.run_date}.log",
+            sink=f"{self.log_directory}/HSA_log_{str(datetime.date.today())}.log",
             level=logging_level,
         )
 
-    def infer(
+    def pipeline(
         self,
-        df,
-    ):
-        self.logger.debug("HSA_pipeline inference has begun")
+        df: pd.DataFrame = None,
+        if_preprocess: bool = True,
+        ):
+        
+        self.logger.debug("HSA_pipeline.pipeline() has begun")
         time_start = time.time()
         df_raw = deepcopy(df)
-
-        self.logger.info("Preprocessing has begun.")
-        pca = PCA()
-        scaler = StandardScaler()
-        prep = hsa_preprocessing.HSA_preprocessing(
-            pca,
-            scaler,
-            self.logger,
-            df=df,
-            drop_keys=self.drop_keys,
-            type_map=self.type_map,
-        )
-        max_spawn = prep.read_raw_get_dummies(max_spawn_dummies=self.max_spawn_dummies)
-
-        select_comps = prep.select_number_comps(
-            percent_variance_explained=self.percent_variance_explained,
-            min_additional_percent_variance_exp=self.min_additional_percent_variance_exp,
-        )
-
-        preprocessed_np = prep.np
-        self.logger.debug(
-            "Preprocessing is complete, data has been processed as a np.array ready for use in Torch."
-        )
-        if len(preprocessed_np) == 0:
-            preprocess_warning = (
-                "Did not return data from preprocessing! HSA_Preprocessing.py"
+        
+        if if_preprocess:
+            self.logger.info("Preprocessing has begun.")
+            pca = PCA()
+            scaler = StandardScaler()
+            prep = hsa_preprocessing.HSA_preprocessing(
+                pca,
+                scaler,
+                self.logger,
+                df=df,
             )
-            self.logger.critical(preprocess_warning)
-            if self.verbose:
-                print(preprocess_warning)
-            sys.exit()
+            max_spawn = prep.read_raw_get_dummies(max_spawn_dummies=self.max_spawn_dummies)
 
-        df = prep.preprocessed_df
+            select_comps = prep.select_number_comps(
+                percent_variance_explained=self.percent_variance_explained,
+                min_additional_percent_variance_exp=self.min_additional_percent_variance_exp,
+                df = prep.preprocessed_df, 
+            )
+
+            preprocessed_np = prep.np
+            df = prep.preprocessed_df
+            
+            self.logger.debug(
+                "Preprocessing is complete, data has been processed as a np.array ready for use in Torch."
+                )
+            if len(preprocessed_np) == 0:
+                preprocess_warning = (
+                    "Did not return data from preprocessing! HSA_Preprocessing.py"
+                )
+                self.logger.critical(preprocess_warning)
+                if self.verbose:
+                    print(preprocess_warning)
+                sys.exit()
+        else:
+            preprocessed_np = df.to_numpy()
+            
+            
         if self.save_preprocessed_np:
             df.to_pickle(f"{self.base__directory}/prep.pkl")
         # Initialize HSA model
@@ -166,12 +172,12 @@ class HSA_pipeline:
         self.logger.success(
             f"Query Generated {len(df_raw)} samples. After PreProcessing step {len(preprocessed_np)} were passed to the model."
         )
-        self.logger.debug(f"Initial Keys:dtypes {self.type_map} ")
+        # self.logger.debug(f"Initial Keys:dtypes {self.type_map} ")
         self.logger.info(
             f"After {pca}, data shape: {preprocessed_np.shape}, broken into {len(loader)} data loaders"
         )
         self.logger.info(f"Features dropped due to max_spawn: {max_spawn}")
-
+        
         try:
             i = 0  # for displaying epoch progress as completed
             self.logger.info("Starting to run through the dataloader on initial pass.")
@@ -194,11 +200,12 @@ class HSA_pipeline:
                 model.train(iterations=self.iterations)
                 # Prediction step
                 model.infer(df)
+                # model.infer(df)
                 # Store anomalous predictions throughout all batches for use in multi filter
                 total_anomaly_index = np.append(total_anomaly_index, model.anomaly_index_raw)
                 i += 1
-        except:
-            self.logger.critical(f"Initial pass FAILED. {sys.exc_info()[:]}")
+        except Exception as e:
+            self.logger.critical(f"Initial pass FAILED. {e}")
             sys.exit()
 
         self.logger.success("Completed dataloader on initial pass.")
@@ -291,9 +298,9 @@ class HSA_pipeline:
                 MF_model.uni_shuffle_multifilter_df(mix_index, mix_data, anomaly_index)
                 mf_data = MF_model.all_data
                 user_location = MF_model.all_index_user
-            except:
+            except Exception as e:
                 self.logger.critical(
-                    f"Multifilter FAILED on filter.  {sys.exc_info()[0]}"
+                    f"Multifilter FAILED on filter.  {e}"
                 )
                 sys.exit()
             self.logger.success("Multifilter Complete.")

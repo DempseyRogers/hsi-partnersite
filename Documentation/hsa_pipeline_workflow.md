@@ -5,7 +5,6 @@ Here we will investigate how model's objects are transformed from preprocessed_d
 
 ```
 class HSA_pipeline():
-
     def __init__(
         self,
         bin_count: int,
@@ -31,7 +30,7 @@ class HSA_pipeline():
         verbose: bool = False,
         ):
 ```
-Parameter definitions and intended uses:
+### Parameter definitions and intended uses:
 - __bin_count__: Multifilter threshold for anomalous prediction 
 - __min_additional_percent_variance_exp__: Minimum percent variance contribution for feature retention in principal component analysis
 - __max_spawn_dummies__: Maximum acceptable spawned features from pd.get_dummies()
@@ -54,8 +53,19 @@ Parameter definitions and intended uses:
 - __save_preprocessed_np__: Determines if preprocessed_np is saved in {base_directory}/results/
 - __verbose__: Determines if logged statements are printed in terminal
 
-## attribute HSA_pipeline.infer(self, df)
+        if_preprocess: bool = True
+## attribute HSA_pipeline.pipeline()
 ```
+def pipeline(
+        self,
+        df: pd.DataFrame = None,
+        if_preprocess: bool = True,
+        ):
+```
+### Inputs:
+- __df__: Model's input data. 
+- __if_preprocess__: If true sklearn.preprocessing.StandardScaler() and sklearn.decomposition.PCA() are applied to df. Requires: __min_additional_percent_variance_exp__, __max_spawn_dummies__, and __percent_variance_explained__.
 
-```
-     
+### Output Objects:
+
+

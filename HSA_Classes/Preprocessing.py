@@ -360,6 +360,7 @@ class HSA_preprocessing:
             temp = sum_exp_var
             sum_exp_var += self.decomposer.explained_variance_ratio_[n_components]
             diff.append(sum_exp_var - temp)
+            select_comps = ""
             if sum_exp_var > per_exp:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAchieved %{100*percent_variance_explained}"
                 break

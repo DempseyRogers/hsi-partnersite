@@ -379,7 +379,7 @@ class HSA_model:
         total_preprocessed_np: pd.DataFrame,
         total_anomaly_index: int,
         mf_batch_size: int,
-    ):
+        ):
         """Given a fixed set of anomalies collects random background pixels
         from throughout the entire preprocessed_np"""
 

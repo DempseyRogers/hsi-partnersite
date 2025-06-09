@@ -42,6 +42,7 @@ class HSA_pipeline:
         affinity_matrix_iterations: int = 20,  # Number of powers of affinity matrix to generate
         iterations: int = int(5e3),  # 5e2 Number of optim.adam steps
         base_directory: str = None,
+        unique_id_str: str = "",
         num_workers: int = 10,
     ):
         self.penalty_ratio = penalty_ratio
@@ -56,6 +57,7 @@ class HSA_pipeline:
         self.logger = logger
         self.plot_figures = plot_figures
         self.save_figures = save_figures
+        self.unique_id_str = unique_id_str
         self.logger.trace("HSA_pipeline has been generated")
         self.logger.info(
             f"penalty_ratio: {self.penalty_ratio}, cutoff_distance: {self.cutoff_distance}, lr: {self.lr}, anomaly_std_tolerance: {self.anomaly_std_tolerance}, bin_count: {self.bin_count}, max_spawn_dummies: {self.max_spawn_dummies}, percent_variance_explained: {self.percent_variance_explained}"
@@ -64,9 +66,9 @@ class HSA_pipeline:
         self.save_preprocessed_np = save_preprocessed_np
 
         self.base_directory = base_directory
-        self.plot_directory = f"{self.base_directory}/plots"  # Storage location
-        self.log_directory = f"{self.base_directory}/logs"  # Storage location
-        self.results_directory = f"{self.base_directory}/results"  # Storage location
+        self.plot_directory = f"{self.base_directory}plots"  # Storage location
+        self.log_directory = f"{self.base_directory}logs"  # Storage location
+        self.results_directory = f"{self.base_directory}results"  # Storage location
 
         self.batch_size = batch_size
         self.multi_filters = multi_filters
@@ -124,6 +126,10 @@ class HSA_pipeline:
             preprocessed_np = prep.np
             df = prep.preprocessed_df
             
+            # %%
+            df =df
+            # %%
+            
             self.logger.debug(
                 "Preprocessing is complete, data has been processed as a np.array ready for use in Torch."
                 )
@@ -139,8 +145,10 @@ class HSA_pipeline:
             preprocessed_np = df.to_numpy()
             
             
-        if self.save_preprocessed_np:
-            df.to_pickle(f"{self.base__directory}/prep.pkl")
+        # if self.save_preprocessed_np:
+        #     self.pkl_df = df
+        #     df.to_pickle(f"{self.base_directory}/prep.pkl")
+            
         # Initialize HSA model
         # Hyper params -- unique to each HSA model, are contained in unique HSA_Model_Configs/
         # Number of workers used in optimization steps
@@ -213,7 +221,7 @@ class HSA_pipeline:
         mix_index, mix_data, anomaly_index = model.global_collect_multifilter_df(
             preprocessed_np,
             total_anomaly_index[: len(preprocessed_np)].astype(int),
-            mf_num_samples=9 * len(total_anomaly_index),
+            9 * len(total_anomaly_index),
         )
         anomaly_prediction_frequency_df = pd.DataFrame()
         anomaly_prediction_frequency_df["User DF Index"] = anomaly_index

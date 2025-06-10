@@ -1,0 +1,1 @@
+pd.concat([thing1, thingi])   in loop is very slow change to pd.concat[array_everything_to concat] for efficiency 

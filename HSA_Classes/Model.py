@@ -325,7 +325,7 @@ class HSA_model:
             self.anomaly_index_raw = all_index_user[self.anomalous_location]
         else:
             self.anomaly_index_raw = (
-                self.anomalous_location + self.start_idx
+                self.anomalous_location #+ self.start_idx
             )  
         # print("Bin DF")
         # print(f"len df: {df.shape}, max {self.anomaly_index_raw} ")

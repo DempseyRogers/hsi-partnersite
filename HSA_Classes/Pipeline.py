@@ -207,7 +207,7 @@ class HSA_pipeline:
                 # Training steps
                 model.train(iterations=self.iterations)
                 # Prediction step
-                model.infer(df)
+                model.infer(df, multifilter_flag=0)
                 # model.infer(df)
                 # Store anomalous predictions throughout all batches for use in multi filter
                 total_anomaly_index = np.append(total_anomaly_index, model.anomaly_index_raw)
@@ -258,8 +258,8 @@ class HSA_pipeline:
                         batch_size=self.batch_size,
                         num_workers=self.num_workers,
                     )
-                    j = 0
-                    for data in batch_loader:
+                    # j = 0
+                    for j, data in enumerate(batch_loader):
                         # # Set up multi filter model
                         MF_model = hsa_model.HSA_model(
                             self.penalty_ratio,
@@ -274,7 +274,7 @@ class HSA_pipeline:
                         MF_model.set_directories(
                             self.log_directory, self.results_directory
                         )
-                        MF_model.set_trial(j * len(data), len(data), self.unique_id_str)
+                        MF_model.set_trial((j-1) * len(data), len(data), self.unique_id_str)
                         MF_model.read_data(
                             data_multifilter_df=data.squeeze(0)
                         ).vertex_weights_distances().weight_generation().graph_evolution()
@@ -282,9 +282,9 @@ class HSA_pipeline:
                         # # Train MF_MODEL
                         MF_model.train(iterations=self.iterations)
                         MF_model.infer(
-                            df, multifilter_flag=1, user_location=user_location
+                            df, multifilter_flag=1, all_index_user=user_location
                         )
-                        j += 1
+                        # j += 1
                     anomaly_prediction_frequency_df.loc[
                         anomaly_prediction_frequency_df["User DF Index"].isin(
                             MF_model.anomaly_index_raw

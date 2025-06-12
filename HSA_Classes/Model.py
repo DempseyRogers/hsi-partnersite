@@ -325,7 +325,7 @@ class HSA_model:
             self.anomaly_index_raw = all_index_user[self.anomalous_location]
         else:
             self.anomaly_index_raw = (
-                self.anomalous_location #+ self.start_idx
+                self.anomalous_location + self.start_idx
             )  
         # print("Bin DF")
         # print(f"len df: {df.shape}, max {self.anomaly_index_raw} ")
@@ -336,43 +336,43 @@ class HSA_model:
         self.logger.debug("HSA model predictions complete.")
         self.preprocessed_df = df
 
-    def local_collect_multifilter_df(
-        self,
-    ):
-        """Collects anomalous pixel data, sub preprocessed_np index, and raw data index
-        Returns a data frame consisting of 10% anomalies and 90% background from
-        preprocessed_np with start_idx!=0"""
+    # def local_collect_multifilter_df(
+    #     self,
+    # ):
+    #     """Collects anomalous pixel data, sub preprocessed_np index, and raw data index
+    #     Returns a data frame consisting of 10% anomalies and 90% background from
+    #     preprocessed_np with start_idx!=0"""
 
-        predicted_anomaly_idx = (np.array(self.anomalous_location)).astype(
-            int
-        )  # Grab the pred anomaly from the sub preprocessed_np
+    #     predicted_anomaly_idx = (np.array(self.anomalous_location)).astype(
+    #         int
+    #     )  # Grab the pred anomaly from the sub preprocessed_np
 
-        prob_vec = np.ones(len(self.preprocessed_np)) * (
-            1 / (len(self.preprocessed_np) - len(predicted_anomaly_idx))
-        )  # assign equal prob of selecting good
-        prob_vec[predicted_anomaly_idx] = 0  # assign 0 prob of grabbing anomaly again
+    #     prob_vec = np.ones(len(self.preprocessed_np)) * (
+    #         1 / (len(self.preprocessed_np) - len(predicted_anomaly_idx))
+    #     )  # assign equal prob of selecting good
+    #     prob_vec[predicted_anomaly_idx] = 0  # assign 0 prob of grabbing anomaly again
 
-        padding_index = np.random.choice(
-            len(self.preprocessed_np),
-            self.batch_size - len(predicted_anomaly_idx),
-            p=prob_vec,
-        )  # randomly select non-anomalous data from current preprocessed_np
-        predicted_anomaly_data = self.preprocessed_np[predicted_anomaly_idx]
-        mix_data = np.append(
-            predicted_anomaly_data,
-            self.preprocessed_np[padding_index],
-            axis=0,
-        )
+    #     padding_index = np.random.choice(
+    #         len(self.preprocessed_np),
+    #         self.batch_size - len(predicted_anomaly_idx),
+    #         p=prob_vec,
+    #     )  # randomly select non-anomalous data from current preprocessed_np
+    #     predicted_anomaly_data = self.preprocessed_np[predicted_anomaly_idx]
+    #     mix_data = np.append(
+    #         predicted_anomaly_data,
+    #         self.preprocessed_np[padding_index],
+    #         axis=0,
+    #     )
 
-        predicted_anomaly = (
-            predicted_anomaly_idx + self.start_idx
-        )  # add start idx to match raw user_df data (whole without pca)
-        index_padding = padding_index + self.start_idx
-        mix_index = np.append(
-            predicted_anomaly, index_padding
-        )  # concat so that anomaly~%10
-        self.logger.trace("Local Multifilter Complete")
-        return mix_index, mix_data, predicted_anomaly
+    #     predicted_anomaly = (
+    #         predicted_anomaly_idx + self.start_idx
+    #     )  # add start idx to match raw user_df data (whole without pca)
+    #     index_padding = padding_index + self.start_idx
+    #     mix_index = np.append(
+    #         predicted_anomaly, index_padding
+    #     )  # concat so that anomaly~%10
+    #     self.logger.trace("Local Multifilter Complete")
+    #     return mix_index, mix_data, predicted_anomaly
 
     def global_collect_multifilter_df(
         self,

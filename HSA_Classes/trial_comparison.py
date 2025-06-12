@@ -38,7 +38,7 @@ today = args.today
 def get_index_list(
     path: str = "", num_trials: int = 4, static_key: str = "first_uid", today=None
 ) -> list:
-    results_index = []
+    results_index_list = []
     for r in range(1, 1 + num_trials):
         index_list = []
 
@@ -52,19 +52,19 @@ def get_index_list(
         except Exception as e:
             print(f"Did NOT FIND: {file}\n{e}")
             index_list.append("")
-        results_index.append(index_list)
+        results_index_list.append(index_list)
 
-    return results_index
+    return results_index_list
 
 
-def similarity_matrix(results_index: list, num_trials: int = 4):  # df
+def similarity_matrix(results_index_list: list, num_trials: int = 4):  # df
     similarity_matrix = np.ones([num_trials, num_trials]) * 100
-    keys = []
-    for i in range(len(results_index)):
-        keys.append(f"Trial_{i}")
-        for j in range(i + 1, len(results_index)):
-            common = len(set(results_index[i]).intersection(set(results_index[j])))
-            max_len = max(len(results_index[i]), len(results_index[j]))
+    keys_list = []
+    for i in range(len(results_index_list)):
+        keys_list.append(f"Trial_{i}")
+        for j in range(i + 1, len(results_index_list)):
+            common = len(set(results_index_list[i]).intersection(set(results_index_list[j])))
+            max_len = max(len(results_index_list[i]), len(results_index_list[j]))
 
             if max_len:
                 similarity_matrix[i, j] = np.round(100 * common / max_len, 2)
@@ -74,17 +74,17 @@ def similarity_matrix(results_index: list, num_trials: int = 4):  # df
                 similarity_matrix[i, j] = 100
                 similarity_matrix[j, i] = 100
 
-    similarity_df = pd.DataFrame(similarity_matrix, index=keys, columns=keys)
+    similarity_df = pd.DataFrame(similarity_matrix, index=keys_list, columns=keys_list)
     similarity_df["mean_percent_similarity"] = similarity_df.mean()
     similarity_df["std_percent_similarity"] = similarity_df.std()
 
     return similarity_df
 
 
-results_index = get_index_list(path, num_trials, static_key, today)
-similarity_df = similarity_matrix(results_index, num_trials)
+results_index_list = get_index_list(path, num_trials, static_key, today)
+similarity_df = similarity_matrix(results_index_list, num_trials)
 print(similarity_df)
 print(
     f"Mean(Mean(percent_similarity): {np.round(similarity_df['mean_percent_similarity'].mean(),2)}%, Mean(STD(percent_similarity): {np.round(similarity_df['std_percent_similarity'].mean(),2)}%"
 )
-print(f"Mean predictions {np.round(np.mean([len(x) for x in results_index]),2)}")
+print(f"Mean predictions {np.round(np.mean([len(x) for x in results_index_list]),2)}")

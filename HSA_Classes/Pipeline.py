@@ -115,7 +115,7 @@ class HSA_pipeline:
                 self.logger,
                 df=df,
             )
-            max_spawn = prep.read_raw_get_dummies(max_spawn_dummies=self.max_spawn_dummies)
+            max_spawn_list = prep.read_raw_get_dummies(max_spawn_dummies=self.max_spawn_dummies)
 
             select_comps = prep.select_number_comps(
                 percent_variance_explained=self.percent_variance_explained,
@@ -171,7 +171,7 @@ class HSA_pipeline:
         )
 
         # Set storage location for outputs
-        total_anomaly_index = np.array([])
+        total_anomaly_index_list = [] # Unknown number of anomalies, using the append and convert method
 
         self.logger.trace("Hyperparameters for this trial have been pickled.")
 
@@ -184,12 +184,11 @@ class HSA_pipeline:
         self.logger.info(
             f"After {pca}, data shape: {preprocessed_np.shape}, broken into {len(loader)} data loaders"
         )
-        self.logger.info(f"Features dropped due to max_spawn: {max_spawn}")
+        self.logger.info(f"Features dropped due to max_spawn_list: {max_spawn_list}")
         
         try:
-            i = 0  # for displaying epoch progress as completed
             self.logger.info("Starting to run through the dataloader on initial pass.")
-            for data in loader:  # setting up gpus
+            for i, data in enumerate(loader):  # setting up gpus
                 model.set_trial(
                     i * self.batch_size, self.batch_size, self.unique_id_str
                 )
@@ -210,12 +209,14 @@ class HSA_pipeline:
                 model.infer(df, multifilter_flag=0)
                 # model.infer(df)
                 # Store anomalous predictions throughout all batches for use in multi filter
-                total_anomaly_index = np.append(total_anomaly_index, model.anomaly_index_raw)
-                i += 1
+                total_anomaly_index_list.append(model.anomaly_index_raw)
+                # total_anomaly_index = np.append(total_anomaly_index, model.anomaly_index_raw)
         except Exception as e:
             self.logger.critical(f"Initial pass FAILED. {e}")
             sys.exit()
 
+        total_anomaly_index = np.array(total_anomaly_index_list)
+        
         self.logger.success("Completed dataloader on initial pass.")
         # Compare anomalous predictions with non anomalous data spanning the set (set initial for multifilter)
         mix_index, mix_data, anomaly_index = model.global_collect_multifilter_df(

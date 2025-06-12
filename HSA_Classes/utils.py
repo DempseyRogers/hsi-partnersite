@@ -210,13 +210,13 @@ class ip_preprocessing:
             v = vecorizer(vocabulary=vocab)
             v.fit([ip_df["sentence"][0]])
             outs = v.transform(ip_df["sentence"]).todense().tolist()
-            results = []
+            results_list = []
             for o in outs:
-                results.append([i for i in o if i > 0])
+                results_list.append([i for i in o if i > 0])
 
             quad_df = pd.DataFrame()
             for i in range(4):
-                quad_df[f"quad_{i}"] = extract(results, i)
+                quad_df[f"quad_{i}"] = extract(results_list, i)
             self.preprocessed_df.drop(self.ip_keys[0], inplace=True, axis=1)
             self.preprocessed_df = pd.concat([self.preprocessed_df, quad_df], axis=1)
             self.logger.debug("Only 1 IP in use, TFIDF Complete.")
@@ -238,13 +238,13 @@ class ip_preprocessing:
             v = vecorizer(vocabulary=vocab)
             v.fit(ip_df["sentence"])
             outs = v.transform(ip_df["sentence"]).todense().tolist()
-            results = []
+            results_list = []
             for o in outs:
-                results.append([i for i in o if i > 0])
+                results_list.append([i for i in o if i > 0])
 
             quad_df = pd.DataFrame()
             for i in range(4):
-                quad_df[f"quad_{i}"] = extract(results, i)
+                quad_df[f"quad_{i}"] = extract(results_list, i)
 
             dest_quad = pd.DataFrame()
             src_quad = pd.DataFrame()

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import torch as t
 from loguru import logger as loguru_logger
+from torch.compiler import allow_in_graph
 
 
 class HSA_model:
@@ -146,7 +147,9 @@ class HSA_model:
 
         d_vec = t.pow(t.sum(self.edgeWeights, 0), (-1 / 2))
         d_matrix = t.diag(d_vec)
-        gam_matrix = t.diag(t.reshape(self.vertex_weights, (self.vertex_weights.shape[0],)))
+        gam_matrix = t.diag(
+            t.reshape(self.vertex_weights, (self.vertex_weights.shape[0],))
+        )
 
         temp = t.matmul(d_matrix, self.edgeWeights)
         sim_matrix = t.matmul(temp, d_matrix)
@@ -178,6 +181,7 @@ class HSA_model:
         self.logger.debug("HSA Graph Theory complete.")
         return self
 
+    @t.compile
     def torch_POF(
         m: t.Tensor,
         affinity_m: t.Tensor,
@@ -196,7 +200,9 @@ class HSA_model:
         obj = (1 / 2) * t.matmul(
             t.matmul(t.transpose(m.unsqueeze(1), 0, 1), affinity_m), m.unsqueeze(1)
         )
-        c = t.matmul(t.matmul(t.transpose(vertex_weights, 0, 1), d_matrix), m.unsqueeze(1))
+        c = t.matmul(
+            t.matmul(t.transpose(vertex_weights, 0, 1), d_matrix), m.unsqueeze(1)
+        )
         neg_constraint = t.lt(m, 0)
         ones = t.ones(m.size()).to(device)
         ge1_constraint = t.gt(t.subtract(m, ones), 0)
@@ -228,20 +234,30 @@ class HSA_model:
             _pr: float,
             _vert_weight: t.tensor,
             _m_old: t.Tensor,
-            _m_mid: t.Tensor,
         ):
+            _m_mid = _m_old
+
             for i in range(len(self.sets[0])):
                 m = _anomaly_score.requires_grad_(False)
                 affinity_m = _sets[0][i]
                 d_matrix = _sets[1][i]
 
-                power = t.tensor(i + 1).requires_grad_(False).to(self.device)
+                power = t.tensor(i + 1).requires_grad_(False)
                 params = [m]
 
-                optimizer = t.optim.Adam(params, lr=t.tensor(self.lr), fused=True)
-                for j in range(iterations):
+                optimizer = t.optim.Adam(params, lr=self.lr)
+
+                # @t.compile  Cannot compile any aspect of the optimizer because the parameter we are
+                # minimizing gets updated and passed to the optimizer. This deallocation breaks the computation graph. Instead the penalized objective function is compiled alone.
+                def cmp_opt_step():
+                    optimizer.step()
+
+                # @t.compile
+                def cmp_opt_zero_grad():
                     optimizer.zero_grad()
 
+                for j in range(iterations):
+                    cmp_opt_zero_grad()
                     loss = (
                         torch_POF(
                             m,
@@ -256,19 +272,19 @@ class HSA_model:
                         .to(self.device)
                     )
                     loss.backward()
-                    optimizer.step()
+                    cmp_opt_step()
 
                     _anomaly_score = params[0]
                     if t.le(
                         t.sqrt(t.sum((t.pow(t.sub(_anomaly_score, _m_mid), 2)))),
-                        t.tensor(_stopping_toll),
+                        _stopping_toll,
                     ):
                         break
                     _m_mid = _anomaly_score
 
                 if t.le(
                     t.sqrt(t.sum((t.pow(t.sub(_anomaly_score, _m_old), 2)))),
-                    t.tensor(_stopping_toll),
+                    _stopping_toll,
                 ):
                     break
                 _m_old = (
@@ -276,18 +292,16 @@ class HSA_model:
                 )
             return _anomaly_score
 
-        # cmp_opt_loop = t.compile(mac_opt_loop, fullgraph=False)
-        cmp_opt_loop = mac_opt_loop
-        # cmp_opt_loop = mac_opt_loop #5.8s
+        stopping_toll = (
+            t.tensor(self.stopping_toll).requires_grad_(False).to(self.device)
+        )
 
-        # cmp_opt_loop = t.compile(mac_opt_loop, backend="eager", dynamic=True )
-        anomaly_score = cmp_opt_loop(
+        anomaly_score = mac_opt_loop(
             self.sets,
-            self.stopping_toll,
+            stopping_toll,
             anomaly_score,
             pr,
             vert_weight,
-            anomaly_score_old,
             anomaly_score_old,
         )
 
@@ -303,35 +317,27 @@ class HSA_model:
         Returns the x_ticks for heat-maps (location in sub preprocessed_np)
         Returns the anomaly_index_raw for heat-maps (location in total_preprocessed_np and raw data)
         """
-        # print("Mean")
         m_mean = np.mean(self.m)
         m_std = np.std(self.m)
 
-        # print("bin score")
         self.bin_score = abs(self.m - m_mean)
 
         self.bin_score[np.where(self.bin_score / m_std < self.std_toll)] = 0
         self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] = np.round(
             self.bin_score[np.where(self.bin_score / m_std > self.std_toll)] / m_std, 1
         )
-        # print("Anomalous Location")
-        
-        self.anomalous_location = np.where(self.bin_score > 0)[
-            0
-        ]  # index in current preprocessed_np
-        # print("multifilter flag")
+
+        self.anomalous_location = np.where(self.bin_score > 0)[0]
 
         if multifilter_flag:
             self.anomaly_index_raw = all_index_user[self.anomalous_location]
         else:
-            self.anomaly_index_raw = (
-                self.anomalous_location + self.start_idx
-            )  
-        # print("Bin DF")
-        # print(f"len df: {df.shape}, max {self.anomaly_index_raw} ")
+            self.anomaly_index_raw = self.anomalous_location + self.start_idx
 
         bin_df = df.iloc[self.anomaly_index_raw]
-        bin_df.insert(len(bin_df.keys()), "Bin Score", self.bin_score[self.anomalous_location])
+        bin_df.insert(
+            len(bin_df.keys()), "Bin Score", self.bin_score[self.anomalous_location]
+        )
         self.bin_df = bin_df
         self.logger.debug("HSA model predictions complete.")
         self.preprocessed_df = df
@@ -379,7 +385,7 @@ class HSA_model:
         total_preprocessed_np: pd.DataFrame,
         total_anomaly_index: int,
         mf_batch_size: int,
-        ):
+    ):
         """Given a fixed set of anomalies collects random background pixels
         from throughout the entire preprocessed_np"""
 
@@ -398,22 +404,21 @@ class HSA_model:
             axis=0,
         )
 
-        mix_index = np.append(
-            total_anomaly_index, padding_index
-        )  # concat so that anomaly~%10
-
+        mix_index = np.append(total_anomaly_index, padding_index)
 
         self.logger.trace("Global Multifilter Complete.")
         return mix_index, mix_data, total_anomaly_index
-    
+
     def apf_df_generation(self, total_anomaly_index):
         self.anomaly_prediction_frequency_df = pd.DataFrame()
         self.anomaly_prediction_frequency_df["User DF Index"] = total_anomaly_index
         self.anomaly_prediction_frequency_df.set_index("User DF Index")
-        self.anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(len(total_anomaly_index))
+        self.anomaly_prediction_frequency_df["Anomaly Bin Count"] = np.zeros(
+            len(total_anomaly_index)
+        )
         self.total_anomaly_index = total_anomaly_index
         return self.anomaly_prediction_frequency_df
-    
+
     def uni_shuffle_multifilter_df(
         self,
         mix_index: np.ndarray,

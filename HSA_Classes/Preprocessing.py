@@ -224,13 +224,13 @@ class HSA_preprocessing:
             list_of_lists = list(df[f"{key}_list"])
             row_set = set()
             for sublist in list_of_lists:
-                row = []
+                row_list = []
                 if type(sublist) == list:
                     for element in sublist:
-                        row.append(element)
+                        row_list.append(element)
                 else:
-                    row.append(sublist)
-                row_set = row_set.union(set(row))
+                    row_list.append(sublist)
+                row_set = row_set.union(set(row_list))
 
             if len(row_set) < max_spawn_dummies:
                 for spawn_key in row_set:
@@ -294,18 +294,18 @@ class HSA_preprocessing:
         self,
         max_spawn_dummies: int = 0,
     ):
-        """Read dataframe for single user and get dummies for keys containing categorical data and objects. If max_spawn dummies is given will drop keys that generate more dummies than specified. The data frame is then scaled in preparation of pca."""
+        """Read dataframe for single user and get dummies for keys containing categorical data and objects. If max_spawn_list dummies is given will drop keys that generate more dummies than specified. The data frame is then scaled in preparation of pca."""
 
         df = self.preprocessed_df
         if self.drop_keys:
             df.drop(self.drop_keys, axis=1, inplace=True)
-        max_spawn = []
+        max_spawn_list = []
 
         for k in df.keys():
             if df[k].dtype in ["category", "object"]:
                 if len(df[k].unique()) > max_spawn_dummies:
                     df.drop(k, axis=1, inplace=True)
-                    max_spawn.append(k)
+                    max_spawn_list.append(k)
 
         d = df[df.select_dtypes(include=["category", "object"]).columns]
         if len(d.keys()):
@@ -313,13 +313,13 @@ class HSA_preprocessing:
             df.drop(d_keys, axis=1, inplace=True)
             df = pd.concat([df, dummies], axis=1)
 
-        time = []
+        time_list = []
         if "duration" in df.keys():
             if df["duration"].dtype != float:
                 for t in df["duration"]:
-                    time.append(t.total_seconds())
+                    time_list.append(t.total_seconds())
                 df.drop("duration", axis=1, inplace=True)
-                df["duration"] = time
+                df["duration"] = time_list
 
         df.columns = df.columns.astype(str)
 
@@ -338,7 +338,7 @@ class HSA_preprocessing:
                     self.preprocessed_df.drop(key, axis=1, inplace=True)
         self.preprocessed_df.dropna(inplace=True)
 
-        return max_spawn
+        return max_spawn_list
 
     def select_number_comps(
         self,
@@ -352,19 +352,19 @@ class HSA_preprocessing:
         min_additional_percent_variance_exp is not achieved."""
         print(df)
         pca = self.decomposer.fit(df)
-        diff = []
+        differences_list = []
         sum_exp_var = 0
         per_exp = percent_variance_explained
         min_additional_percent_variance_exp = min_additional_percent_variance_exp
         for n_components in range(len(pca.explained_variance_ratio_)):
             temp = sum_exp_var
             sum_exp_var += self.decomposer.explained_variance_ratio_[n_components]
-            diff.append(sum_exp_var - temp)
+            differences_list.append(sum_exp_var - temp)
             select_comps = ""
             if sum_exp_var > per_exp:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nAchieved %{100*percent_variance_explained}"
                 break
-            if diff[-1] < min_additional_percent_variance_exp:
+            if differences_list[-1] < min_additional_percent_variance_exp:
                 select_comps = f"{n_components} components account for %{np.round(100*sum_exp_var,2)} of variance\nMore features add less than %{100*min_additional_percent_variance_exp} explanation of variance"
                 break
         self.decomposer.set_params(n_components=n_components)

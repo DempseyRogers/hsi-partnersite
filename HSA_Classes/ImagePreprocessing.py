@@ -22,7 +22,7 @@ class HSA_Image_preprocessing:
         max_spawn_dummies: int = 0,
     ):
         """Read dataframe for single user and get dummies for keys containing categorical data and objects
-        if max_spawn dummies is given will drop keys that generate more dummies than specified.
+        if max_spawn_list dummies is given will drop keys that generate more dummies than specified.
         the data frame is then scaled in preparation of pca."""
 
         df = pd.read_pickle(self.raw_path)
